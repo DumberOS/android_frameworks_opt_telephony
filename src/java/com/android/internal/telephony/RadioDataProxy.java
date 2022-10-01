@@ -21,6 +21,7 @@ import android.net.LinkProperties;
 import android.os.AsyncResult;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.data.DataProfile;
@@ -244,7 +245,8 @@ public class RadioDataProxy extends RadioServiceProxy {
         } else {
             ArrayList<android.hardware.radio.V1_0.DataProfileInfo> dpis = new ArrayList<>();
             for (DataProfile dp : profiles) {
-                if (dp.isPersistent()) {
+                boolean forceCognitive = SystemProperties.getBoolean("persist.sys.phh.radio.force_cognitive", false);
+                        if (dp.isPersistent() || forceCognitive) {
                     dpis.add(RILUtils.convertToHalDataProfile10(dp));
                 }
             }
