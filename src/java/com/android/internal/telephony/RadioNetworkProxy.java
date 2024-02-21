@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// AIDL
 import vendor.samsung.hardware.radio.network.ISehRadioNetworkIndication;
 import vendor.samsung.hardware.radio.network.ISehRadioNetworkResponse;
 import vendor.samsung.hardware.radio.network.ISehRadioNetwork;
@@ -45,6 +46,10 @@ import vendor.samsung.hardware.radio.network.SehRadioResponseInfo;
 import vendor.samsung.hardware.radio.network.SehRoamingNetworkInfo;
 import vendor.samsung.hardware.radio.network.SehSignalBar;
 import vendor.samsung.hardware.radio.network.SehVendorConfiguration;
+
+// HIDL
+import android.hardware.radio.V1_0.RadioResponseInfo;
+import vendor.samsung.hardware.radio.V2_2.ISehRadio;
 
 /**
  * A holder for IRadioNetwork. Use getHidl to get IRadio 1.0 and call the HIDL implementations or
@@ -83,7 +88,7 @@ public class RadioNetworkProxy extends RadioServiceProxy {
      * @return updated HAL version
      */
     public HalVersion setAidl(HalVersion halVersion,
-            android.hardware.radio.network.IRadioNetwork network, String serviceName) {
+            android.hardware.radio.network.IRadioNetwork network) {
         HalVersion version = halVersion;
         try {
             version = RIL.getServiceHalVersion(network.getInterfaceVersion());
@@ -167,7 +172,7 @@ public class RadioNetworkProxy extends RadioServiceProxy {
             };
 
             var samsungResponse = new ISehRadioNetworkResponse.Stub() {
-                void l(String v) {
+                private void l(String v) {
                     android.util.Log.e("PHH-Radio", v);
                 }
                 public void emergencyControlResponse(SehRadioResponseInfo info) {}
@@ -209,7 +214,7 @@ public class RadioNetworkProxy extends RadioServiceProxy {
             var samsungHal =
                 ISehRadioNetwork.Stub.asInterface(
                         android.os.ServiceManager.waitForDeclaredService(
-                            ISehRadioNetwork.DESCRIPTOR + "/" + serviceName));
+                            ISehRadioNetwork.DESCRIPTOR + "/" + mServiceName));
             samsungHal.setResponseFunctions(samsungResponse, samsungIndication);
             var conf = new SehVendorConfiguration[1];
             conf[0] = new SehVendorConfiguration();
@@ -813,6 +818,117 @@ public class RadioNetworkProxy extends RadioServiceProxy {
                     serial, !specifiers.isEmpty(), specifiers.stream()
                             .map(RILUtils::convertToHalRadioAccessSpecifier11)
                             .collect(Collectors.toCollection(ArrayList::new)));
+        }
+    }
+
+    @Override
+    public void setHidl(HalVersion halVersion, android.hardware.radio.V1_0.IRadio radio) {
+        super.setHidl(halVersion, radio);
+        try {
+            var samsungResponse = new vendor.samsung.hardware.radio.V2_2.ISehRadioResponse.Stub() {
+public void getIccCardStatusResponse() {}
+public void supplyNetworkDepersonalizationResponse(RadioResponseInfo info) {}
+public void dialResponse(RadioResponseInfo info) {}
+public void getCurrentCallsResponse() {}
+public void getImsRegistrationStateResponse() {}
+public void setImsCallListResponse(RadioResponseInfo info) {}
+public void getPreferredNetworkListResponse() {}
+public void setPreferredNetworkListResponse(RadioResponseInfo info) {}
+public void sendEncodedUssdResponse(RadioResponseInfo info) {}
+public void getDisable2gResponse(RadioResponseInfo info, int isDisable) {}
+public void setDisable2gResponse(RadioResponseInfo info) {}
+public void getCnapResponse(RadioResponseInfo info, int m) {}
+public void getPhonebookStorageInfoResponse() {}
+public void getUsimPhonebookCapabilityResponse(RadioResponseInfo info, ArrayList<Integer> phonebookCapability) {}
+public void setSimOnOffResponse(RadioResponseInfo info) {}
+public void setSimInitEventResponse(RadioResponseInfo info) {}
+public void getSimLockInfoResponse() {}
+public void supplyIccPersonalizationResponse(RadioResponseInfo info) {}
+public void changeIccPersonalizationResponse(RadioResponseInfo info) {}
+public void getPhonebookEntryResponse() {}
+public void accessPhonebookEntryResponse(RadioResponseInfo info, int SimPhonmebookAccessResp) {}
+public void getCellBroadcastConfigResponse() {}
+public void emergencySearchResponse(RadioResponseInfo info, int respEmergencySearch) {}
+public void emergencyControlResponse(RadioResponseInfo info) {}
+public void getAtrResponse(RadioResponseInfo info, String atr) {}
+public void sendCdmaSmsExpectMoreResponse() {}
+public void sendSmsResponse() {}
+public void sendSMSExpectMoreResponse() {}
+public void sendCdmaSmsResponse( ){}
+public void sendImsSmsResponse() {}
+public void getStoredMsgCountFromSimResponse() {}
+public void readSmsFromSimResponse() {}
+public void writeSmsToSimResponse(RadioResponseInfo info, int index) {}
+public void setDataAllowedResponse(RadioResponseInfo info) {}
+public void getCsgListResponse() {}
+public void selectCsgManualResponse(RadioResponseInfo info) {}
+public void setMobileDataSettingResponse(RadioResponseInfo info) {}
+public void sendRequestRawResponse(RadioResponseInfo info, ArrayList<Byte> data) {}
+public void sendRequestStringsResponse(RadioResponseInfo info, ArrayList<String> data) {}
+public void setNrModeResponse(RadioResponseInfo info) {}
+public void getNrModeResponse(RadioResponseInfo info, int nrMode) {}
+public void getNrIconResponse(RadioResponseInfo info, int nrIconType) {}
+public void getIccCardStatusResponse_2_1(RadioResponseInfo info, vendor.samsung.hardware.radio.V2_1.SehCardStatus cardStatus) {}
+public void setNrModeResponse_2_2(RadioResponseInfo info) {}
+public void getVendorSpecificConfigurationResponse(RadioResponseInfo info, ArrayList<vendor.samsung.hardware.radio.V2_2.SehVendorConfiguration> configurations) {}
+public void setVendorSpecificConfigurationResponse(RadioResponseInfo info) {}
+            };
+            var samsungIndication = new vendor.samsung.hardware.radio.V2_2.ISehRadioIndication.Stub() {
+                private void l(String v) {
+                    android.util.Log.e("PHH-Radio", "Indication: " + v);
+                }
+                public void acbInfoChanged(int type, ArrayList<Integer> acbInfo) { l("acbInfoChanged"); }
+                public void csFallback(int type, int state) { l("csFallback"); }
+                public void imsPreferenceChanged(int type, ArrayList<Integer> imsPref) { l("imsPreferenceChanged"); }
+                public void voiceRadioBearerHandoverStatusChanged(int type, int state) { l("voiceRadioBearerHandoverStatusChanged"); }
+                public void timerStatusChangedInd(int type, ArrayList<Integer> eventNoti) { l("timerStatusChangedInd"); }
+                public void modemCapabilityIndication(int type, ArrayList<Byte> data) { l("modemCapabilityIndication"); }
+                public void needTurnOnRadioIndication(int type) { l("needTurnOnRadioIndication"); }
+                public void simPhonebookReadyIndication(int type) { l("simPhonebookReadyIndication"); }
+                public void phonebookInitCompleteIndication(int type) { l("phonebookInitCompleteIndication"); }
+                public void deviceReadyNoti(int type) { l("deviceReadyNoti"); }
+                public void stkSmsSendResultIndication(int type, int result) { l("stkSmsSendResultIndication"); }
+                public void stkCallControlResultIndication(int type, String cmd) { l("stkCallControlResultIndication"); }
+                public void simSwapStateChangedIndication(int type, int state) { l("simSwapStateChangedIndication"); }
+                public void simCountMismatchedIndication(int type, int state) { l("simCountMismatchedIndication"); }
+                public void simOnOffStateChangedNotify(int type, int mode) { l("simOnOffStateChangedNotify"); }
+                public void releaseCompleteMessageIndication(int type, vendor.samsung.hardware.radio.V2_0.SehSsReleaseComplete result) { l("releaseCompleteMessageIndication"); }
+                public void sapNotify(int type, ArrayList<Byte> data) { l("sapNotify"); }
+                public void nrBearerAllocationChanged(int type, int status) { l("nrBearerAllocationChanged"); }
+                public void nrNetworkTypeAdded(int type, int status) { l("nrNetworkTypeAdded"); }
+                public void rrcStateChanged(int type, vendor.samsung.hardware.radio.V2_0.SehRrcStateInfo state) { l("rrcStateChanged"); }
+                public void configModemCapabilityChangeNoti(int type, vendor.samsung.hardware.radio.V2_0.SehConfigModemCapability configModemCapa) { l("configModemCapabilityChangeNoti"); }
+                public void needApnProfileIndication(String select) { l("needApnProfileIndication");};
+                public int needSettingValueIndication(String key, String table) {
+                    l("needSettingValueIndication");
+                    return -1;
+                }
+                public void execute(int type, String cmd) { l("execute " + cmd); }
+                public void signalLevelInfoChanged(int type, vendor.samsung.hardware.radio.V2_0.SehSignalBar signalBarInfo) { l("signalLevelInfoChanged"); }
+                public void extendedRegistrationState(int type, vendor.samsung.hardware.radio.V2_0.SehExtendedRegStateResult state) { l("extendedRegistrationState"); }
+                public void needPacketUsage(String iface, needPacketUsageCallback hidl_cb) {
+                    hidl_cb.onValues(0, new vendor.samsung.hardware.radio.V2_0.SehPacketUsage());
+                }
+                public void nrIconTypeChanged(int type, int nrIconType) { l("nrIconTypeChanged " + nrIconType); }
+                public void callDetailsChanged(int type, ArrayList<vendor.samsung.hardware.radio.V2_0.SehCallDetails> callDetails) { l("callDetailsChanged"); }
+                public void vendorConfigurationChanged(int type, ArrayList<vendor.samsung.hardware.radio.V2_2.SehVendorConfiguration> configurations) { l("vendorConfigurationChanged"); }
+                public void eriInfoReceived(int type, vendor.samsung.hardware.radio.V2_2.SehEriInfo eriInfo) { l("eriInfoReceived"); }
+
+            };
+
+            var svc = ISehRadio.getService(mServiceName);
+            svc.setResponseFunction(samsungResponse, samsungIndication);
+
+            var args = new ArrayList<vendor.samsung.hardware.radio.V2_2.SehVendorConfiguration>();
+            var arg = new vendor.samsung.hardware.radio.V2_2.SehVendorConfiguration();
+            arg.name = "FW_READY";
+            arg.value = "1";
+            args.add(arg);
+
+            svc.setVendorSpecificConfiguration(0x3232, args);
+            android.util.Log.e("PHH-Radio", "HIDL FW_READY done");
+        } catch(Throwable t) {
+            android.util.Log.e("PHH-Radio", "Getting HIDL ISehRadio", t);
         }
     }
 

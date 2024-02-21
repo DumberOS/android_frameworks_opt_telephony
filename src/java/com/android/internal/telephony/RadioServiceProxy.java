@@ -83,4 +83,9 @@ public abstract class RadioServiceProxy {
     public String toString() {
         return getClass().getSimpleName() + "[mHalVersion=" + mHalVersion + ']';
     }
+
+    protected String mServiceName = null;
+    public void setServiceName(String serviceName) {
+        mServiceName = serviceName;
+    }
 }
