@@ -868,7 +868,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
                             mHalVersion.put(service, ((RadioNetworkProxy) serviceProxy).setAidl(
                                     mHalVersion.get(service),
                                     android.hardware.radio.network.IRadioNetwork.Stub
-                                            .asInterface(binder)));
+                                            .asInterface(binder), HIDL_SERVICE_NAME[mPhoneId]));
                         }
                         break;
                     case HAL_SERVICE_SIM:
