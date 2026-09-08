@@ -20,6 +20,7 @@ import android.content.res.Resources;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemProperties;
 
 import com.android.telephony.Rlog;
 
@@ -33,23 +34,23 @@ import java.util.List;
  * manages the set of HardwareConfig for the framework.
  */
 public class TelephonyDevController extends Handler {
-    private static final String LOG_TAG = "TDC";
-    private static final boolean DBG = true;
+    protected static final String LOG_TAG = "TDC";
+    protected static final boolean DBG = true;
     private static final Object mLock = new Object();
 
     private static final int EVENT_HARDWARE_CONFIG_CHANGED = 1;
 
     private static TelephonyDevController sTelephonyDevController;
-    private static ArrayList<HardwareConfig> mModems = new ArrayList<HardwareConfig>();
-    private static ArrayList<HardwareConfig> mSims = new ArrayList<HardwareConfig>();
+    protected static ArrayList<HardwareConfig> mModems = new ArrayList<HardwareConfig>();
+    protected static ArrayList<HardwareConfig> mSims = new ArrayList<HardwareConfig>();
 
     private static Message sRilHardwareConfig;
 
-    private static void logd(String s) {
+    protected static void logd(String s) {
         Rlog.d(LOG_TAG, s);
     }
 
-    private static void loge(String s) {
+    protected static void loge(String s) {
         Rlog.e(LOG_TAG, s);
     }
 
@@ -59,8 +60,36 @@ public class TelephonyDevController extends Handler {
             if (sTelephonyDevController != null) {
                 throw new RuntimeException("TelephonyDevController already created!?!");
             }
-            sTelephonyDevController = new TelephonyDevController();
+            if ("0".equals(SystemProperties.get(
+                    "ro.vendor.mtk_telephony_add_on_policy", "0"))) {
+                if (hasStockMtkResourceIds()) {
+                    try {
+                        Class<?> clazz = Class.forName(
+                                "com.mediatek.internal.telephony.MtkTelephonyDevController",
+                                false, ClassLoader.getSystemClassLoader());
+                        sTelephonyDevController = (TelephonyDevController)
+                                clazz.getConstructor().newInstance();
+                    } catch (Exception e) {
+                        Rlog.e(LOG_TAG, "No MtkTelephonyDevController! Used AOSP instead!", e);
+                        sTelephonyDevController = new TelephonyDevController();
+                    }
+                } else {
+                    // The stock subclass hard-codes Android 13's internal array resource ID.
+                    sTelephonyDevController = new TelephonyDevController();
+                }
+            } else {
+                sTelephonyDevController = new TelephonyDevController();
+            }
             return sTelephonyDevController;
+        }
+    }
+
+    private static boolean hasStockMtkResourceIds() {
+        try {
+            return "android:array/config_telephonyHardware".equals(
+                    Resources.getSystem().getResourceName(0x010700a8));
+        } catch (Resources.NotFoundException e) {
+            return false;
         }
     }
 
@@ -74,13 +103,13 @@ public class TelephonyDevController extends Handler {
         }
     }
 
-    private void initFromResource() {
+    protected void initFromResource() {
         Resources resource = Resources.getSystem();
         String[] hwStrings = resource.getStringArray(
             com.android.internal.R.array.config_telephonyHardware);
         if (hwStrings != null) {
             for (String hwString : hwStrings) {
-                HardwareConfig hw = new HardwareConfig(hwString);
+                HardwareConfig hw = makeHardwareConfig(hwString);
                 if (hw != null) {
                     if (hw.type == HardwareConfig.DEV_HARDWARE_TYPE_MODEM) {
                         updateOrInsert(hw, mModems);
@@ -92,7 +121,22 @@ public class TelephonyDevController extends Handler {
         }
     }
 
-    private TelephonyDevController() {
+    private HardwareConfig makeHardwareConfig(String config) {
+        if ("0".equals(SystemProperties.get(
+                "ro.vendor.mtk_telephony_add_on_policy", "0"))) {
+            try {
+                Class<?> clazz = Class.forName(
+                        "com.mediatek.internal.telephony.MtkHardwareConfig",
+                        false, ClassLoader.getSystemClassLoader());
+                return (HardwareConfig) clazz.getConstructor(String.class).newInstance(config);
+            } catch (Exception e) {
+                Rlog.e(LOG_TAG, "No MtkHardwareConfig! Used AOSP instead!", e);
+            }
+        }
+        return new HardwareConfig(config);
+    }
+
+    public TelephonyDevController() {
         initFromResource();
 
         mModems.trimToSize();
@@ -140,7 +184,7 @@ public class TelephonyDevController extends Handler {
     /**
      * hardware configuration update or insert.
      */
-    private static void updateOrInsert(HardwareConfig hw, ArrayList<HardwareConfig> list) {
+    protected static void updateOrInsert(HardwareConfig hw, ArrayList<HardwareConfig> list) {
         int size;
         HardwareConfig item;
         synchronized (mLock) {
@@ -161,7 +205,21 @@ public class TelephonyDevController extends Handler {
     /**
      * hardware configuration changed.
      */
-    private static void handleGetHardwareConfigChanged(AsyncResult ar) {
+    public static void handleGetHardwareConfigChanged(AsyncResult ar) {
+        if ("0".equals(SystemProperties.get(
+                "ro.vendor.mtk_telephony_add_on_policy", "0"))) {
+            try {
+                Class<?> clazz = Class.forName(
+                        "com.mediatek.internal.telephony.MtkTelephonyDevController",
+                        false, ClassLoader.getSystemClassLoader());
+                clazz.getMethod("handleGetHardwareConfigChanged", AsyncResult.class)
+                        .invoke(null, ar);
+                return;
+            } catch (Exception e) {
+                Rlog.e(LOG_TAG,
+                        "handleGetHardwareConfigChanged exception! Used AOSP instead!", e);
+            }
+        }
         if ((ar.exception == null) && (ar.result != null)) {
             List hwcfg = (List)ar.result;
             for (int i = 0 ; i < hwcfg.size() ; i++) {

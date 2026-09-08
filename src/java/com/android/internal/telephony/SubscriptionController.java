@@ -16,6 +16,7 @@
 
 package com.android.internal.telephony;
 
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
 
@@ -24,6 +25,23 @@ import com.android.internal.telephony.subscription.SubscriptionManagerService;
 public class SubscriptionController {
     private static final String LOG_TAG = "SubscriptionController";
     protected static SubscriptionController sInstance = null;
+
+    /** Android 13 binary compatibility holder used by vendor PhoneSwitcher subclasses. */
+    public static class WatchedInt {
+        private int mValue;
+
+        public WatchedInt(int initialValue) {
+            mValue = initialValue;
+        }
+
+        public int get() {
+            return mValue;
+        }
+
+        public void set(int newValue) {
+            mValue = newValue;
+        }
+    }
 
     public static SubscriptionController getInstance() {
         // Lazy init happens once, whenever getInstance() is invoked for the first time
@@ -37,6 +55,11 @@ public class SubscriptionController {
             }
         }
         return sInstance;
+    }
+
+    /** Android 13 compatibility API used after the active data subscription changes. */
+    public static void invalidateActiveDataSubIdCaches() {
+        SubscriptionManager.invalidateSubscriptionManagerServiceCaches();
     }
 
     /**
@@ -54,5 +77,47 @@ public class SubscriptionController {
             return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
         }
         return subId;
+    }
+
+    /** Android 13 compatibility API used by stock MediaTek telephony components. */
+    public int getPhoneId(int subId) {
+        return getSubscriptionManagerService().getPhoneId(subId);
+    }
+
+    /** Android 13 compatibility API used by stock MediaTek telephony components. */
+    public int getDefaultDataSubId() {
+        return getSubscriptionManagerService().getDefaultDataSubId();
+    }
+
+    /** Android 13 compatibility API used by stock MediaTek telephony components. */
+    public int getSlotIndex(int subId) {
+        return getSubscriptionManagerService().getSlotIndex(subId);
+    }
+
+    /** Android 13 compatibility API used by MTK SIM and phonebook initialization. */
+    public int getSimStateForSlotIndex(int slotIndex) {
+        IccCardConstants.State state = IccCardConstants.State.UNKNOWN;
+        if (slotIndex < 0) {
+            return state.ordinal();
+        }
+
+        Phone phone = null;
+        try {
+            phone = PhoneFactory.getPhone(slotIndex);
+        } catch (IllegalStateException ignored) {
+            // PhoneFactory may not be ready while the UICC controller is starting.
+        }
+        if (phone != null) {
+            IccCard iccCard = phone.getIccCard();
+            if (iccCard != null) {
+                state = iccCard.getState();
+            }
+        }
+        return state.ordinal();
+    }
+
+    /** Android 13 compatibility API used when MTK restores UICC application state. */
+    public SubscriptionInfo getSubInfoForIccId(String iccId) {
+        return getSubscriptionManagerService().getSubscriptionInfoForIccId(iccId);
     }
 }

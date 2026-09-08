@@ -37,30 +37,30 @@ public class AdnRecordCache extends Handler implements IccConstants {
     //***** Instance Variables
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private IccFileHandler mFh;
+    protected IccFileHandler mFh;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private UsimPhoneBookManager mUsimPhoneBookManager;
+    protected UsimPhoneBookManager mUsimPhoneBookManager;
 
     // Indexed by EF ID
-    SparseArray<ArrayList<AdnRecord>> mAdnLikeFiles
+    protected SparseArray<ArrayList<AdnRecord>> mAdnLikeFiles
         = new SparseArray<ArrayList<AdnRecord>>();
 
     // People waiting for ADN-like files to be loaded
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    SparseArray<ArrayList<Message>> mAdnLikeWaiters
+    protected SparseArray<ArrayList<Message>> mAdnLikeWaiters
         = new SparseArray<ArrayList<Message>>();
 
     // People waiting for adn record to be updated
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    SparseArray<Message> mUserWriteResponse = new SparseArray<Message>();
+    protected SparseArray<Message> mUserWriteResponse = new SparseArray<Message>();
 
     //***** Event Constants
 
-    static final int EVENT_LOAD_ALL_ADN_LIKE_DONE = 1;
-    static final int EVENT_UPDATE_ADN_DONE = 2;
+    protected static final int EVENT_LOAD_ALL_ADN_LIKE_DONE = 1;
+    protected static final int EVENT_UPDATE_ADN_DONE = 2;
 
     //***** Constructor
-    AdnRecordCache(IccFileHandler fh) {
+    public AdnRecordCache(IccFileHandler fh) {
         mFh = fh;
         mUsimPhoneBookManager = new UsimPhoneBookManager(mFh, this);
     }
@@ -85,7 +85,7 @@ public class AdnRecordCache extends Handler implements IccConstants {
 
     }
 
-    private void clearWaiters() {
+    protected void clearWaiters() {
         int size = mAdnLikeWaiters.size();
         for (int i = 0; i < size; i++) {
             ArrayList<Message> waiters = mAdnLikeWaiters.valueAt(i);
@@ -319,7 +319,7 @@ public class AdnRecordCache extends Handler implements IccConstants {
 
     //***** Private methods
 
-    private void
+    protected void
     notifyWaiters(ArrayList<Message> waiters, AsyncResult ar) {
 
         if (waiters == null) {

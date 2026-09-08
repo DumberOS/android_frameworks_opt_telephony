@@ -43,26 +43,26 @@ import java.util.Locale;
 public class UsimPhoneBookManager extends Handler implements IccConstants {
     private static final String LOG_TAG = "UsimPhoneBookManager";
     private static final boolean DBG = true;
-    private ArrayList<PbrRecord> mPbrRecords;
-    private Boolean mIsPbrPresent;
+    protected ArrayList<PbrRecord> mPbrRecords;
+    protected Boolean mIsPbrPresent;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private IccFileHandler mFh;
-    private AdnRecordCache mAdnCache;
+    protected IccFileHandler mFh;
+    protected AdnRecordCache mAdnCache;
     @UnsupportedAppUsage
-    private Object mLock = new Object();
+    protected Object mLock = new Object();
     @UnsupportedAppUsage
-    private ArrayList<AdnRecord> mPhoneBookRecords;
-    private ArrayList<byte[]> mIapFileRecord;
-    private ArrayList<byte[]> mEmailFileRecord;
+    protected ArrayList<AdnRecord> mPhoneBookRecords;
+    protected ArrayList<byte[]> mIapFileRecord;
+    protected ArrayList<byte[]> mEmailFileRecord;
 
     // email list for each ADN record. The key would be
     // ADN's efid << 8 + record #
-    private SparseArray<ArrayList<String>> mEmailsForAdnRec;
+    protected SparseArray<ArrayList<String>> mEmailsForAdnRec;
 
     // SFI to ADN Efid mapping table
-    private SparseIntArray mSfiEfidTable;
+    protected SparseIntArray mSfiEfidTable;
 
-    private boolean mRefreshCache = false;
+    protected boolean mRefreshCache = false;
 
 
     private static final int EVENT_PBR_LOAD_DONE = 1;
@@ -176,7 +176,7 @@ public class UsimPhoneBookManager extends Handler implements IccConstants {
     }
 
     // Refresh the phonebook cache.
-    private void refreshCache() {
+    protected void refreshCache() {
         if (mPbrRecords == null) return;
         mPhoneBookRecords.clear();
 
@@ -192,7 +192,7 @@ public class UsimPhoneBookManager extends Handler implements IccConstants {
     }
 
     // Read the phonebook reference file EF_PBR.
-    private void readPbrFileAndWait() {
+    protected void readPbrFileAndWait() {
         mFh.loadEFLinearFixedAll(EF_PBR, obtainMessage(EVENT_PBR_LOAD_DONE));
         try {
             mLock.wait();

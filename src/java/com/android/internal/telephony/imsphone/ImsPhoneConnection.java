@@ -77,16 +77,16 @@ public class ImsPhoneConnection extends Connection implements
     //***** Instance Variables
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private ImsPhoneCallTracker mOwner;
+    protected ImsPhoneCallTracker mOwner;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private ImsPhoneCall mParent;
+    protected ImsPhoneCall mParent;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private ImsCall mImsCall;
+    protected ImsCall mImsCall;
     private final Bundle mExtras = new Bundle();
     private TelephonyMetrics mMetrics = TelephonyMetrics.getInstance();
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean mDisconnected;
+    protected boolean mDisconnected;
 
     /*
     int mIndex;          // index in ImsPhoneCallTracker.connections[], -1 if unassigned
@@ -247,6 +247,16 @@ public class ImsPhoneConnection extends Connection implements
         }
     }
 
+    /** Android 13 vendor compatibility constructor. */
+    public ImsPhoneConnection(Phone phone, String dialString, ImsPhoneCallTracker ct,
+            ImsPhoneCall parent, boolean isEmergency, boolean isWpsCall) {
+        this(phone, dialString, ct, parent, isEmergency, isWpsCall,
+                new ImsPhone.ImsDialArgs.Builder()
+                        .setIsEmergency(isEmergency)
+                        .setIsWpsCall(isWpsCall)
+                        .build());
+    }
+
     /** This is an MO call, created when dialing */
     public ImsPhoneConnection(Phone phone, String dialString, ImsPhoneCallTracker ct,
             ImsPhoneCall parent, boolean isEmergency, boolean isWpsCall,
@@ -340,12 +350,12 @@ public class ImsPhoneConnection extends Connection implements
         return (a == null) ? (b == null) : a.equals (b);
     }
 
-    static boolean
+    protected static boolean
     equalsBaseDialString (String a, String b) {
         return (a == null) ? (b == null) : (b != null && a.startsWith (b));
     }
 
-    private int applyLocalCallCapabilities(ImsCallProfile localProfile, int capabilities) {
+    protected int applyLocalCallCapabilities(ImsCallProfile localProfile, int capabilities) {
         Rlog.i(LOG_TAG, "applyLocalCallCapabilities - localProfile = " + localProfile);
         capabilities = removeCapability(capabilities,
                 Connection.Capability.SUPPORTS_VT_LOCAL_BIDIRECTIONAL);

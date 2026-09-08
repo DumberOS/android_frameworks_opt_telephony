@@ -33,6 +33,8 @@ import android.content.pm.PackageManager;
 import android.net.LocalServerSocket;
 import android.os.Build;
 import android.os.Looper;
+import android.os.Message;
+import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
@@ -164,7 +166,9 @@ public class PhoneFactory {
                 // register statsd pullers.
                 sMetricsCollector = new MetricsCollector(context, sFeatureFlags);
 
-                sPhoneNotifier = new DefaultPhoneNotifier(context, featureFlags);
+                sPhoneNotifier = TelephonyComponentFactory.getInstance().inject(
+                        TelephonyComponentFactory.class.getName())
+                        .makeDefaultPhoneNotifier(context);
 
                 int cdmaSubscription = CdmaSubscriptionSourceManager.getDefault(context);
                 Rlog.i(LOG_TAG, "Cdma Subscription set to " + cdmaSubscription);
@@ -185,10 +189,12 @@ public class PhoneFactory {
                     networkModes[i] = RILConstants.PREFERRED_NETWORK_MODE;
 
                     Rlog.i(LOG_TAG, "Network Mode set to " + Integer.toString(networkModes[i]));
-                    sCommandsInterfaces[i] = new RIL(context,
+                    sCommandsInterfaces[i] = makeRil(context,
                             RadioAccessFamily.getRafFromNetworkType(networkModes[i]),
                             cdmaSubscription, i);
                 }
+
+                initMtkRadioManager(context, numPhones);
 
                 if (numPhones > 0) {
                     final RadioConfig radioConfig = RadioConfig.make(context,
@@ -244,6 +250,8 @@ public class PhoneFactory {
 
                 sMadeDefaults = true;
 
+                makeMtkSmartDataSwitchAssistant(context);
+
                 // Only bring up IMS if the device supports having an IMS stack.
                 if (context.getPackageManager().hasSystemFeature(
                         PackageManager.FEATURE_TELEPHONY_IMS)) {
@@ -253,6 +261,7 @@ public class PhoneFactory {
                     for (int i = 0; i < numPhones; i++) {
                         sPhones[i].createImsPhone();
                     }
+                    makeMtkDataHelper(context);
                 } else {
                     Rlog.i(LOG_TAG, "IMS is not supported on this device, skipping ImsResolver.");
                 }
@@ -283,6 +292,8 @@ public class PhoneFactory {
                     sTelephonyNetworkFactories[i] = new TelephonyNetworkFactory(
                             Looper.myLooper(), sPhones[i], featureFlags);
                 }
+
+                initMtkCarrierExpress();
             }
         }
     }
@@ -310,7 +321,7 @@ public class PhoneFactory {
 
             int cdmaSubscription = CdmaSubscriptionSourceManager.getDefault(context);
             for (int i = prevActiveModemCount; i < activeModemCount; i++) {
-                sCommandsInterfaces[i] = new RIL(context, RadioAccessFamily.getRafFromNetworkType(
+                sCommandsInterfaces[i] = makeRil(context, RadioAccessFamily.getRafFromNetworkType(
                         RILConstants.PREFERRED_NETWORK_MODE),
                         cdmaSubscription, i);
                 sPhones[i] = createPhone(context, i);
@@ -321,6 +332,88 @@ public class PhoneFactory {
                 sTelephonyNetworkFactories[i] = new TelephonyNetworkFactory(
                         Looper.myLooper(), sPhones[i], sFeatureFlags);
             }
+
+            makeMtkSmartDataSwitchAssistant(context);
+        }
+    }
+
+    private static RIL makeRil(Context context, int allowedNetworkTypes, int cdmaSubscription,
+            Integer instanceId) {
+        TelephonyComponentFactory factory = getMtkTelephonyComponentFactory();
+        if (factory != null) {
+            try {
+                RIL ril = factory.makeRil(context, allowedNetworkTypes, cdmaSubscription,
+                        instanceId);
+                Rlog.i(LOG_TAG, "Using vendor RIL " + ril.getClass().getName()
+                        + " for phone " + instanceId);
+                return ril;
+            } catch (LinkageError | RuntimeException e) {
+                Rlog.e(LOG_TAG, "Unable to create MtkRIL; using platform RIL", e);
+            }
+        }
+        return new RIL(context, allowedNetworkTypes, cdmaSubscription, instanceId);
+    }
+
+    private static TelephonyComponentFactory getMtkTelephonyComponentFactory() {
+        if (!SystemProperties.getBoolean("sys.phh.stock_mtk_ims", false)) {
+            return null;
+        }
+
+        TelephonyComponentFactory factory = TelephonyComponentFactory.getInstance().inject(
+                TelephonyComponentFactory.class.getName());
+        if (factory == null || factory.getClass() == TelephonyComponentFactory.class) {
+            Rlog.e(LOG_TAG, "MTK telephony factory was not injected");
+            return null;
+        }
+        return factory;
+    }
+
+    private static void initMtkRadioManager(Context context, int numPhones) {
+        TelephonyComponentFactory factory = getMtkTelephonyComponentFactory();
+        if (factory == null) return;
+
+        try {
+            factory.initRadioManager(context, numPhones, sCommandsInterfaces);
+            Rlog.i(LOG_TAG, "Initialized vendor RadioManager");
+        } catch (LinkageError | RuntimeException e) {
+            Rlog.e(LOG_TAG, "Vendor RadioManager is incompatible; continuing without it", e);
+        }
+    }
+
+    private static void makeMtkSmartDataSwitchAssistant(Context context) {
+        TelephonyComponentFactory factory = getMtkTelephonyComponentFactory();
+        if (factory == null) return;
+
+        try {
+            factory.makeSmartDataSwitchAssistant(context, sPhones);
+            Rlog.i(LOG_TAG, "Initialized vendor SmartDataSwitchAssistant");
+        } catch (LinkageError | RuntimeException e) {
+            Rlog.e(LOG_TAG,
+                    "Vendor SmartDataSwitchAssistant is incompatible; continuing without it", e);
+        }
+    }
+
+    private static void makeMtkDataHelper(Context context) {
+        TelephonyComponentFactory factory = getMtkTelephonyComponentFactory();
+        if (factory == null) return;
+
+        try {
+            factory.makeDataHelper(context, sPhones);
+            Rlog.i(LOG_TAG, "Initialized vendor DataHelper");
+        } catch (LinkageError | RuntimeException e) {
+            Rlog.e(LOG_TAG, "Vendor DataHelper is incompatible; continuing without it", e);
+        }
+    }
+
+    private static void initMtkCarrierExpress() {
+        TelephonyComponentFactory factory = getMtkTelephonyComponentFactory();
+        if (factory == null) return;
+
+        try {
+            factory.initCarrierExpress();
+            Rlog.i(LOG_TAG, "Initialized vendor CarrierExpress");
+        } catch (LinkageError | RuntimeException e) {
+            Rlog.e(LOG_TAG, "Vendor CarrierExpress is incompatible; continuing without it", e);
         }
     }
 
@@ -374,6 +467,35 @@ public class PhoneFactory {
                         " phone=" + phone);
             }
             return phone;
+        }
+    }
+
+    /** Initialize MTK's modem-side WFC capability from the vendor feature property. */
+    static void syncMtkWfcFeatureSupport(Phone phone) {
+        if (!SystemProperties.getBoolean("sys.phh.stock_mtk_ims", false)) return;
+
+        int phoneId = phone.getPhoneId();
+        boolean supported = SystemProperties.getBoolean(
+                "persist.vendor.mtk_wfc_support", false);
+
+        synchronized (sLockProxyPhones) {
+            if (sCommandsInterfaces == null || phoneId < 0
+                    || phoneId >= sCommandsInterfaces.length
+                    || sCommandsInterfaces[phoneId] == null) {
+                Rlog.e(LOG_TAG, "Cannot set MTK WFC support for unavailable phone " + phoneId);
+                return;
+            }
+
+            try {
+                Method setVendorSetting = sCommandsInterfaces[phoneId].getClass().getMethod(
+                        "setVendorSetting", int.class, String.class, Message.class);
+                setVendorSetting.invoke(sCommandsInterfaces[phoneId], 16,
+                        supported ? "1" : "0", null);
+                Rlog.i(LOG_TAG, "Set MTK WFC feature support " + supported
+                        + " for phone " + phoneId);
+            } catch (ReflectiveOperationException | LinkageError e) {
+                Rlog.e(LOG_TAG, "Unable to set MTK WFC support for phone " + phoneId, e);
+            }
         }
     }
 

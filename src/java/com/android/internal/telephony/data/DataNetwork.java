@@ -102,6 +102,7 @@ import com.android.internal.telephony.data.DataSettingsManager.DataSettingsManag
 import com.android.internal.telephony.data.LinkBandwidthEstimator.LinkBandwidthEstimatorCallback;
 import com.android.internal.telephony.data.TelephonyNetworkAgent.TelephonyNetworkAgentCallback;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.internal.telephony.metrics.DataCallSessionStats;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
 import com.android.internal.util.ArrayUtils;
@@ -174,7 +175,7 @@ public class DataNetwork extends StateMachine {
     private static final int EVENT_ATTACH_NETWORK_REQUEST = 2;
 
     /** Event for detaching a network request. */
-    private static final int EVENT_DETACH_NETWORK_REQUEST = 3;
+    protected static final int EVENT_DETACH_NETWORK_REQUEST = 3;
 
     /** Event when detect radio not available. */
     private static final int  EVENT_RADIO_NOT_AVAILABLE = 4;
@@ -183,10 +184,10 @@ public class DataNetwork extends StateMachine {
     private static final int EVENT_ALLOCATE_PDU_SESSION_ID_RESPONSE = 5;
 
     /** Event for setup data network response. */
-    private static final int EVENT_SETUP_DATA_NETWORK_RESPONSE = 6;
+    protected static final int EVENT_SETUP_DATA_NETWORK_RESPONSE = 6;
 
     /** Event for tearing down data network. */
-    private static final int EVENT_TEAR_DOWN_NETWORK = 7;
+    protected static final int EVENT_TEAR_DOWN_NETWORK = 7;
 
     /** Event triggered by {@link DataServiceCallback#onDataCallListChanged(List)}. */
     private static final int EVENT_DATA_STATE_CHANGED = 8;
@@ -195,7 +196,7 @@ public class DataNetwork extends StateMachine {
     private static final int EVENT_SERVICE_STATE_CHANGED = 9;
 
     /** Event for detaching all network requests. */
-    private static final int EVENT_DETACH_ALL_NETWORK_REQUESTS = 10;
+    protected static final int EVENT_DETACH_ALL_NETWORK_REQUESTS = 10;
 
     /** Event for bandwidth estimation from the modem changed. */
     private static final int EVENT_BANDWIDTH_ESTIMATE_FROM_MODEM_CHANGED = 11;
@@ -216,7 +217,7 @@ public class DataNetwork extends StateMachine {
     private static final int EVENT_CARRIER_PRIVILEGED_UIDS_CHANGED = 18;
 
     /** Event for deactivate data network response. */
-    private static final int EVENT_DEACTIVATE_DATA_NETWORK_RESPONSE = 19;
+    protected static final int EVENT_DEACTIVATE_DATA_NETWORK_RESPONSE = 19;
 
     /**
      * Event for data network stuck in transient (i.e. connecting/disconnecting/handover) state for
@@ -466,21 +467,21 @@ public class DataNetwork extends StateMachine {
     );
 
     /** The parent state. Any messages not handled by the child state fallback to this. */
-    private final DefaultState mDefaultState = new DefaultState();
+    protected DefaultState mDefaultState = new DefaultState();
 
     /**
      * The connecting state. This is the initial state of a data network.
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final ConnectingState mConnectingState = new ConnectingState();
+    protected ConnectingState mConnectingState = new ConnectingState();
 
     /**
      * The connected state. This is the state when data network becomes usable.
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final ConnectedState mConnectedState = new ConnectedState();
+    protected ConnectedState mConnectedState = new ConnectedState();
 
     /**
      * The handover state. This is the state when data network handover between IWLAN and cellular.
@@ -497,7 +498,7 @@ public class DataNetwork extends StateMachine {
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final DisconnectingState mDisconnectingState = new DisconnectingState();
+    protected DisconnectingState mDisconnectingState = new DisconnectingState();
 
     /**
      * The disconnected state. This is the final state of a data network.
@@ -507,7 +508,7 @@ public class DataNetwork extends StateMachine {
     private final DisconnectedState mDisconnectedState = new DisconnectedState();
 
     /** The phone instance. */
-    private final @NonNull Phone mPhone;
+    protected final @NonNull Phone mPhone;
 
     /** Feature flags */
     private final @NonNull FeatureFlags mFlags;
@@ -526,7 +527,7 @@ public class DataNetwork extends StateMachine {
      * {@link DataService.DataServiceProvider#deactivateDataCall(int, int, DataServiceCallback)}
      * has been called. This flag can be only changed from {@code false} to {@code true}.
      */
-    private boolean mInvokedDataDeactivation = false;
+    protected boolean mInvokedDataDeactivation = false;
 
     /**
      * Indicates that if the data network has ever entered {@link ConnectedState}.
@@ -540,13 +541,13 @@ public class DataNetwork extends StateMachine {
     private final LocalLog mLocalLog = new LocalLog(128);
 
     /** The callback to receives data network state update. */
-    private final @NonNull DataNetworkCallback mDataNetworkCallback;
+    protected final @NonNull DataNetworkCallback mDataNetworkCallback;
 
     /** The log tag. */
-    private String mLogTag;
+    protected String mLogTag;
 
     /** Metrics of per data network connection. */
-    private final DataCallSessionStats mDataCallSessionStats;
+    protected final DataCallSessionStats mDataCallSessionStats;
 
     /**
      * The unique context id assigned by the data service in {@link DataCallResponse#getId()}. One
@@ -554,7 +555,7 @@ public class DataNetwork extends StateMachine {
      * {@link AccessNetworkConstants#TRANSPORT_TYPE_WLAN}. The reason for storing both is that
      * during handover, both cid will be used.
      */
-    private final SparseIntArray mCid = new SparseIntArray(2);
+    protected final SparseIntArray mCid = new SparseIntArray(2);
 
     /**
      * The initial network agent id. The network agent can be re-created due to immutable capability
@@ -570,13 +571,13 @@ public class DataNetwork extends StateMachine {
      * Data service managers for accessing {@link AccessNetworkConstants#TRANSPORT_TYPE_WWAN} and
      * {@link AccessNetworkConstants#TRANSPORT_TYPE_WLAN} data services.
      */
-    private final @NonNull SparseArray<DataServiceManager> mDataServiceManagers;
+    protected final @NonNull SparseArray<DataServiceManager> mDataServiceManagers;
 
     /** Access networks manager. */
     private final @NonNull AccessNetworksManager mAccessNetworksManager;
 
     /** Data network controller. */
-    private final @NonNull DataNetworkController mDataNetworkController;
+    protected final @NonNull DataNetworkController mDataNetworkController;
 
     /** Data network controller callback. */
     private final @NonNull DataNetworkController.DataNetworkControllerCallback
@@ -586,16 +587,16 @@ public class DataNetwork extends StateMachine {
     private @NonNull DataSettingsManagerCallback mDataSettingsManagerCallback;
 
     /** Data config manager. */
-    private final @NonNull DataConfigManager mDataConfigManager;
+    protected final @NonNull DataConfigManager mDataConfigManager;
 
     /** VCN manager. */
-    private final @Nullable VcnManager mVcnManager;
+    protected final @Nullable VcnManager mVcnManager;
 
     /** VCN policy changed listener. */
     private @Nullable VcnNetworkPolicyChangeListener mVcnPolicyChangeListener;
 
     /** The network agent associated with this data network. */
-    private @NonNull TelephonyNetworkAgent mNetworkAgent;
+    protected @NonNull TelephonyNetworkAgent mNetworkAgent;
 
     /** QOS callback tracker. This is only created after network connected on WWAN. */
     private @Nullable QosCallbackTracker mQosCallbackTracker;
@@ -604,7 +605,7 @@ public class DataNetwork extends StateMachine {
     private @Nullable KeepaliveTracker mKeepaliveTracker;
 
     /** The data profile used to establish this data network. */
-    private @NonNull DataProfile mDataProfile;
+    protected @NonNull DataProfile mDataProfile;
 
     /**
      * The data profile used for data handover. Some carriers might use different data profile
@@ -613,7 +614,7 @@ public class DataNetwork extends StateMachine {
     private @Nullable DataProfile mHandoverDataProfile;
 
     /** The network capabilities of this data network. */
-    private @NonNull NetworkCapabilities mNetworkCapabilities;
+    protected @NonNull NetworkCapabilities mNetworkCapabilities;
 
     /** The matched traffic descriptor returned from setup data call request. */
     private final @NonNull List<TrafficDescriptor> mTrafficDescriptors = new ArrayList<>();
@@ -646,7 +647,7 @@ public class DataNetwork extends StateMachine {
     private boolean mCongested = false;
 
     /** The network requests associated with this data network */
-    private final @NonNull NetworkRequestList mAttachedNetworkRequestList =
+    protected final @NonNull NetworkRequestList mAttachedNetworkRequestList =
             new NetworkRequestList();
 
     /**
@@ -661,7 +662,7 @@ public class DataNetwork extends StateMachine {
      * The fail cause from either setup data failure or unsolicited disconnect reported by data
      * service.
      */
-    private @DataFailureCause int mFailCause = DataFailCause.NONE;
+    protected @DataFailureCause int mFailCause = DataFailCause.NONE;
 
     /**
      * The tear down reason if the data call is voluntarily deactivated, not due to failure.
@@ -680,13 +681,17 @@ public class DataNetwork extends StateMachine {
      * {@link NetworkCapabilities#NET_CAPABILITY_NOT_SUSPENDED} which can happen when data network
      * is in connected or disconnecting state.
      */
-    private boolean mSuspended = false;
+    protected boolean mSuspended = false;
 
     /**
      * The current transport of the data network. For handover, the current transport will be set
      * after handover completes.
      */
-    private @TransportType int mTransport;
+    protected @TransportType int mTransport;
+
+    /** Registration state captured when the current setup request was sent. */
+    @NetworkRegistrationInfo.RegistrationState
+    private int mRegStateWhenSetup = NetworkRegistrationInfo.REGISTRATION_STATE_UNKNOWN;
 
     /**
      * The last known data network type.
@@ -945,6 +950,17 @@ public class DataNetwork extends StateMachine {
      * @param dataAllowedReason The reason that why setting up this data network is allowed.
      * @param callback The callback to receives data network state update.
      */
+    public DataNetwork(@NonNull Phone phone, @NonNull Looper looper,
+            @NonNull SparseArray<DataServiceManager> dataServiceManagers,
+            @NonNull DataProfile dataProfile,
+            @NonNull NetworkRequestList networkRequestList,
+            @TransportType int transport,
+            @NonNull DataAllowedReason dataAllowedReason,
+            @NonNull DataNetworkCallback callback) {
+        this(phone, new FeatureFlagsImpl(), looper, dataServiceManagers, dataProfile,
+                networkRequestList, transport, dataAllowedReason, callback);
+    }
+
     public DataNetwork(@NonNull Phone phone, FeatureFlags featureFlags, @NonNull Looper looper,
             @NonNull SparseArray<DataServiceManager> dataServiceManagers,
             @NonNull DataProfile dataProfile,
@@ -1013,6 +1029,8 @@ public class DataNetwork extends StateMachine {
      * Initialize and start the state machine.
      */
     private void initializeStateMachine() {
+        // Android 13 vendor subclasses replace selected states through this hook.
+        mtkReplaceStates();
         addState(mDefaultState);
         addState(mConnectingState, mDefaultState);
         addState(mConnectedState, mDefaultState);
@@ -1112,7 +1130,7 @@ public class DataNetwork extends StateMachine {
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final class DefaultState extends State {
+    protected class DefaultState extends State {
         @Override
         public void enter() {
             logv("Registering all events.");
@@ -1367,9 +1385,7 @@ public class DataNetwork extends StateMachine {
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final class ConnectingState extends State {
-        /** Used for checking setup response IP mismatch. */
-        @NetworkRegistrationInfo.RegistrationState private int mRegStateWhenSetup;
+    protected class ConnectingState extends State {
         @Override
         public void enter() {
             sendMessageDelayed(EVENT_STUCK_IN_TRANSIENT_STATE,
@@ -1519,6 +1535,9 @@ public class DataNetwork extends StateMachine {
                     + ", response=" + response);
             mFailCause = getFailCauseFromDataCallResponse(resultCode, response);
             validateDataCallResponse(response, mRegStateWhenSetup);
+            if (mtkHandleSetupResponse(mFailCause, response)) {
+                return;
+            }
             if (mFailCause == DataFailCause.NONE) {
                 DataNetwork dataNetwork = mDataNetworkController.getDataNetworkByInterface(
                         response.getInterfaceName());
@@ -1589,12 +1608,23 @@ public class DataNetwork extends StateMachine {
         }
     }
 
+    /** Android 13 vendor entry point retained after setup handling moved into ConnectingState. */
+    protected void setupData() {
+        mConnectingState.setupData();
+    }
+
+    /** Android 13 vendor entry point retained after setup handling moved into ConnectingState. */
+    protected void onSetupResponse(@DataServiceCallback.ResultCode int resultCode,
+            @Nullable DataCallResponse response) {
+        mConnectingState.onSetupResponse(resultCode, response);
+    }
+
     /**
      * The connected state. This is the state when data network becomes usable.
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final class ConnectedState extends State {
+    protected class ConnectedState extends State {
         @Override
         public void enter() {
             // Note that reaching here could mean from connecting -> connected, or from
@@ -1812,7 +1842,7 @@ public class DataNetwork extends StateMachine {
      *
      * @see DataNetwork for the state machine diagram.
      */
-    private final class DisconnectingState extends State {
+    protected class DisconnectingState extends State {
         @Override
         public void enter() {
             sendMessageDelayed(EVENT_STUCK_IN_TRANSIENT_STATE,
@@ -2020,18 +2050,10 @@ public class DataNetwork extends StateMachine {
      * @param networkRequest Network request to detach.
      * @param shouldRetry {@code true} if the detached network request should be retried.
      */
-    private void onDetachNetworkRequest(@NonNull TelephonyNetworkRequest networkRequest,
-            boolean shouldRetry) {
+    protected void onDetachNetworkRequest(@NonNull TelephonyNetworkRequest networkRequest) {
         mAttachedNetworkRequestList.remove(networkRequest);
         networkRequest.setState(TelephonyNetworkRequest.REQUEST_STATE_UNSATISFIED);
         networkRequest.setAttachedNetwork(null);
-
-        if (shouldRetry) {
-            // Inform DataNetworkController that a network request was detached and should be
-            // scheduled to retry.
-            mDataNetworkCallback.invokeFromExecutor(
-                    () -> mDataNetworkCallback.onRetryUnsatisfiedNetworkRequest(networkRequest));
-        }
 
         if (mAttachedNetworkRequestList.isEmpty()) {
             log("All network requests are detached.");
@@ -2045,6 +2067,15 @@ public class DataNetwork extends StateMachine {
                     && preferredDataPhoneId != mPhone.getPhoneId()) {
                 tearDown(TEAR_DOWN_REASON_PREFERRED_DATA_SWITCHED);
             }
+        }
+    }
+
+    private void onDetachNetworkRequest(@NonNull TelephonyNetworkRequest networkRequest,
+            boolean shouldRetry) {
+        onDetachNetworkRequest(networkRequest);
+        if (shouldRetry) {
+            mDataNetworkCallback.invokeFromExecutor(
+                    () -> mDataNetworkCallback.onRetryUnsatisfiedNetworkRequest(networkRequest));
         }
     }
 
@@ -2216,7 +2247,7 @@ public class DataNetwork extends StateMachine {
     /**
      * Update the network capabilities.
      */
-    private void updateNetworkCapabilities() {
+    protected void updateNetworkCapabilities() {
         final NetworkCapabilities.Builder builder = new NetworkCapabilities.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
         boolean roaming = mPhone.getServiceState().getDataRoaming();
@@ -2426,6 +2457,7 @@ public class DataNetwork extends StateMachine {
         builder.setLinkDownstreamBandwidthKbps(mNetworkBandwidth.downlinkBandwidthKbps);
         builder.setLinkUpstreamBandwidthKbps(mNetworkBandwidth.uplinkBandwidthKbps);
 
+        mtkUpdateNetworkCapabilities(builder);
         NetworkCapabilities nc = builder.build();
         if (mNetworkCapabilities == null || mNetworkAgent == null) {
             // This is the first time when network capabilities is created. The agent is not created
@@ -2495,7 +2527,7 @@ public class DataNetwork extends StateMachine {
     /**
      * Update data suspended state.
      */
-    private void updateSuspendState() {
+    protected void updateSuspendState() {
         if (isConnecting() || isDisconnected()) {
             // Return if not in the right state.
             return;
@@ -2553,7 +2585,7 @@ public class DataNetwork extends StateMachine {
      *
      * @return The fail cause. {@link DataFailCause#NONE} if succeeds.
      */
-    private @DataFailureCause int getFailCauseFromDataCallResponse(
+    protected @DataFailureCause int getFailCauseFromDataCallResponse(
             @DataServiceCallback.ResultCode int resultCode, @Nullable DataCallResponse response) {
         int failCause = DataFailCause.NONE;
         switch (resultCode) {
@@ -2584,7 +2616,7 @@ public class DataNetwork extends StateMachine {
      *
      * @param response The data call response from data service.
      */
-    private void updateDataNetwork(@NonNull DataCallResponse response) {
+    protected void updateDataNetwork(@NonNull DataCallResponse response) {
         mCid.put(mTransport, response.getId());
         LinkProperties linkProperties = new LinkProperties();
 
@@ -2644,8 +2676,11 @@ public class DataNetwork extends StateMachine {
         int mtuV4 = response.getMtuV4() > 0 ? response.getMtuV4() : response.getMtu();
 
         if (mtuV4 <= 0) {
-            // Use back up value from data profile.
-            if (mDataProfile.getApnSetting() != null) {
+            int customizedMtu = mtkGetCustomizedMtu(mDataProfile.getApnSetting(), 0);
+            if (customizedMtu > 0) {
+                mtuV4 = customizedMtu;
+            } else if (mDataProfile.getApnSetting() != null) {
+                // Use back up value from data profile.
                 mtuV4 = mDataProfile.getApnSetting().getMtuV4();
             }
             if (mtuV4 <= 0) {
@@ -2656,8 +2691,11 @@ public class DataNetwork extends StateMachine {
         // For backwards compatibility, use getMtu() if getMtuV6() is not available.
         int mtuV6 = response.getMtuV6() > 0 ? response.getMtuV6() : response.getMtu();
         if (mtuV6 <= 0) {
-            // Use back up value from data profile.
-            if (mDataProfile.getApnSetting() != null) {
+            int customizedMtu = mtkGetCustomizedMtu(mDataProfile.getApnSetting(), 1);
+            if (customizedMtu > 0) {
+                mtuV6 = customizedMtu;
+            } else if (mDataProfile.getApnSetting() != null) {
+                // Use back up value from data profile.
                 mtuV6 = mDataProfile.getApnSetting().getMtuV6();
             }
             if (mtuV6 <= 0) {
@@ -2806,7 +2844,7 @@ public class DataNetwork extends StateMachine {
      *
      * @param resultCode The result code.
      */
-    private void onDeactivateResponse(@DataServiceCallback.ResultCode int resultCode) {
+    protected void onDeactivateResponse(@DataServiceCallback.ResultCode int resultCode) {
         logl("onDeactivateResponse: resultCode="
                 + DataServiceCallback.resultCodeToString(resultCode));
         if (resultCode == DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE) {
@@ -2834,7 +2872,7 @@ public class DataNetwork extends StateMachine {
         sendMessage(obtainMessage(EVENT_TEAR_DOWN_NETWORK, reason));
     }
 
-    private void onTearDown(@TearDownReason int reason) {
+    protected void onTearDown(@TearDownReason int reason) {
         logl("onTearDown: reason=" + tearDownReasonToString(reason));
 
         // track frequent NetworkAgent.onNetworkUnwanted() call of IMS and INTERNET
@@ -3163,7 +3201,7 @@ public class DataNetwork extends StateMachine {
      * @param transport The transport.
      * @return The data network type.
      */
-    private @NetworkType int getDataNetworkType(@TransportType int transport) {
+    protected @NetworkType int getDataNetworkType(@TransportType int transport) {
         // WLAN transport can't have network type other than IWLAN. Ideally service state tracker
         // should report the correct RAT, but sometimes race condition could happen that service
         // state is reset to out of service and RAT not updated to IWLAN yet.
@@ -3381,7 +3419,7 @@ public class DataNetwork extends StateMachine {
      * Send the precise data connection state to the listener of
      * {@link android.telephony.TelephonyCallback.PreciseDataConnectionStateListener}.
      */
-    private void notifyPreciseDataConnectionState() {
+    protected void notifyPreciseDataConnectionState() {
         PreciseDataConnectionState pdcs = getPreciseDataConnectionState();
         logv("notifyPreciseDataConnectionState=" + pdcs);
         mPhone.notifyDataConnection(pdcs);
@@ -3801,7 +3839,7 @@ public class DataNetwork extends StateMachine {
      * @param event The event
      * @return The event in string format.
      */
-    private static @NonNull String eventToString(int event) {
+    protected static @NonNull String eventToString(int event) {
         switch (event) {
             case EVENT_DATA_CONFIG_UPDATED:
                 return "EVENT_DATA_CONFIG_UPDATED";
@@ -3869,6 +3907,30 @@ public class DataNetwork extends StateMachine {
                 + (getCurrentState() != null ? getCurrentState().getName() : null) + "]";
     }
 
+    /** Android 13 vendor hook for carrier-specific MTU selection. */
+    protected int mtkGetCustomizedMtu(@Nullable ApnSetting apnSetting, int protocol) {
+        return 0;
+    }
+
+    /** Android 13 vendor hook for handling setup responses before the platform fallback. */
+    protected boolean mtkHandleSetupResponse(@DataFailureCause int failCause,
+            @Nullable DataCallResponse response) {
+        return false;
+    }
+
+    /** Android 13 vendor hook for replacing the platform data-network states. */
+    protected void mtkReplaceStates() {
+    }
+
+    /** Android 13 vendor ABI hook retained for MediaTek data-stall policy. */
+    protected boolean mtkSkipDataStallAlarm(@Nullable String apn) {
+        return false;
+    }
+
+    /** Android 13 vendor hook for adding carrier-specific network capabilities. */
+    protected void mtkUpdateNetworkCapabilities(@NonNull NetworkCapabilities.Builder builder) {
+    }
+
     /**
      * @return The short name of the data network (e.g. DN-C-1)
      */
@@ -3923,7 +3985,7 @@ public class DataNetwork extends StateMachine {
      * Log debug messages and also log into the local log.
      * @param s debug messages
      */
-    private void logl(@NonNull String s) {
+    protected void logl(@NonNull String s) {
         log(s);
         mLocalLog.log((getCurrentState() != null ? (getCurrentState().getName() + ": ") : "") + s);
     }

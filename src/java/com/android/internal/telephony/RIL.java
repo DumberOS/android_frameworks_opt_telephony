@@ -224,9 +224,9 @@ public class RIL extends BaseCommands implements CommandsInterface {
     // When we are testing emergency calls using ril.test.emergencynumber, this will trigger test
     // ECbM when the call is ended.
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    AtomicBoolean mTestingEmergencyCall = new AtomicBoolean(false);
+    public AtomicBoolean mTestingEmergencyCall = new AtomicBoolean(false);
 
-    final Integer mPhoneId;
+    protected final Integer mPhoneId;
 
     private boolean mUseOldMncMccFormat;
 
@@ -245,40 +245,41 @@ public class RIL extends BaseCommands implements CommandsInterface {
     private final SparseArray<Set<Integer>> mDisabledRadioServices = new SparseArray<>();
 
     /* default work source which will blame phone process */
-    private WorkSource mRILDefaultWorkSource;
+    protected WorkSource mRILDefaultWorkSource;
 
     /* Worksource containing all applications causing wakelock to be held */
     private WorkSource mActiveWakelockWorkSource;
 
     /** Telephony metrics instance for logging metrics event */
-    private TelephonyMetrics mMetrics = TelephonyMetrics.getInstance();
+    protected TelephonyMetrics mMetrics = TelephonyMetrics.getInstance();
     /** Radio bug detector instance */
     private RadioBugDetector mRadioBugDetector = null;
 
-    private boolean mIsCellularSupported;
-    private RadioResponse mRadioResponse;
-    private RadioIndication mRadioIndication;
-    private volatile IRadio mRadioProxy = null;
-    private DataResponse mDataResponse;
-    private DataIndication mDataIndication;
+    protected boolean mIsCellularSupported;
+    RadioResponse mRadioResponse;
+    RadioIndication mRadioIndication;
+    protected volatile IRadio mRadioProxy = null;
+    protected HalVersion mRadioVersion = RADIO_HAL_VERSION_UNKNOWN;
+    public DataResponse mDataResponse;
+    public DataIndication mDataIndication;
     private ImsResponse mImsResponse;
     private ImsIndication mImsIndication;
-    private MessagingResponse mMessagingResponse;
-    private MessagingIndication mMessagingIndication;
-    private ModemResponse mModemResponse;
-    private ModemIndication mModemIndication;
-    private NetworkResponse mNetworkResponse;
-    private NetworkIndication mNetworkIndication;
-    private SimResponse mSimResponse;
-    private SimIndication mSimIndication;
-    private VoiceResponse mVoiceResponse;
-    private VoiceIndication mVoiceIndication;
-    private SparseArray<RadioServiceProxy> mServiceProxies = new SparseArray<>();
-    private final SparseArray<BinderServiceDeathRecipient> mDeathRecipients = new SparseArray<>();
-    private final SparseArray<AtomicLong> mServiceCookies = new SparseArray<>();
-    private final RadioProxyDeathRecipient mRadioProxyDeathRecipient;
-    final RilHandler mRilHandler;
-    private MockModem mMockModem;
+    public MessagingResponse mMessagingResponse;
+    public MessagingIndication mMessagingIndication;
+    public ModemResponse mModemResponse;
+    public ModemIndication mModemIndication;
+    public NetworkResponse mNetworkResponse;
+    public NetworkIndication mNetworkIndication;
+    public SimResponse mSimResponse;
+    public SimIndication mSimIndication;
+    public VoiceResponse mVoiceResponse;
+    public VoiceIndication mVoiceIndication;
+    protected SparseArray<RadioServiceProxy> mServiceProxies = new SparseArray<>();
+    protected final SparseArray<BinderServiceDeathRecipient> mDeathRecipients = new SparseArray<>();
+    protected final SparseArray<AtomicLong> mServiceCookies = new SparseArray<>();
+    protected final RadioProxyDeathRecipient mRadioProxyDeathRecipient;
+    protected RilHandler mRilHandler;
+    protected MockModem mMockModem;
 
     // Thread-safe HashMap to map from RIL_REQUEST_XXX constant to HalVersion.
     // This is for Radio HAL Fallback Compatibility feature. When a RIL request
@@ -489,7 +490,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
         }
     }
 
-    private synchronized void resetProxyAndRequestList(int service) {
+    protected synchronized void resetProxyAndRequestList(int service) {
         if (service == HAL_SERVICE_RADIO) {
             mRadioProxy = null;
         } else {
@@ -720,11 +721,12 @@ public class RIL extends BaseCommands implements CommandsInterface {
                 }
 
                 if (mRadioProxy != null) {
+                    mRadioVersion = mHalVersion.get(HAL_SERVICE_RADIO);
                     if (!mIsRadioProxyInitialized) {
                         mIsRadioProxyInitialized = true;
                         mRadioProxy.linkToDeath(mRadioProxyDeathRecipient,
                                 mServiceCookies.get(HAL_SERVICE_RADIO).incrementAndGet());
-                        mRadioProxy.setResponseFunctions(mRadioResponse, mRadioIndication);
+                        setResponseFunctions();
                     }
                 } else {
                     mDisabledRadioServices.get(HAL_SERVICE_RADIO).add(mPhoneId);
@@ -744,6 +746,22 @@ public class RIL extends BaseCommands implements CommandsInterface {
         }
 
         return mRadioProxy;
+    }
+
+    /** Android 13 vendor hook for replacing legacy HIDL response handlers. */
+    protected void setResponseFunctions() throws RemoteException {
+        mRadioProxy.setResponseFunctions(mRadioResponse, mRadioIndication);
+    }
+
+    /** Android 13 compatibility entry point used by vendor RIL subclasses. */
+    public synchronized IRadio getRadioProxy(Message result) {
+        IRadio radioProxy = getRadioProxy();
+        if (radioProxy == null && result != null) {
+            AsyncResult.forMessage(result, null,
+                    CommandException.fromRilErrno(RADIO_NOT_AVAILABLE));
+            result.sendToTarget();
+        }
+        return radioProxy;
     }
 
     /**
@@ -776,6 +794,18 @@ public class RIL extends BaseCommands implements CommandsInterface {
         }
         riljLoge("getRadioServiceProxy: unrecognized " + serviceClass);
         return null;
+    }
+
+    /** Android 13 compatibility entry point used by vendor RIL subclasses. */
+    public <T extends RadioServiceProxy> T getRadioServiceProxy(
+            Class<T> serviceClass, Message result) {
+        T serviceProxy = getRadioServiceProxy(serviceClass);
+        if ((serviceProxy == null || serviceProxy.isEmpty()) && result != null) {
+            AsyncResult.forMessage(result, null,
+                    CommandException.fromRilErrno(RADIO_NOT_AVAILABLE));
+            result.sendToTarget();
+        }
+        return serviceProxy;
     }
 
     /**
@@ -1051,8 +1081,9 @@ public class RIL extends BaseCommands implements CommandsInterface {
                             mIsRadioProxyInitialized = true;
                             serviceProxy.getHidl().linkToDeath(mRadioProxyDeathRecipient,
                                     mServiceCookies.get(HAL_SERVICE_RADIO).incrementAndGet());
-                            serviceProxy.getHidl().setResponseFunctions(
-                                    mRadioResponse, mRadioIndication);
+                            // Android 13 vendor RILs use this field from their callback hook.
+                            mRadioProxy = serviceProxy.getHidl();
+                            setResponseFunctions();
                         }
                     }
                 } else {
@@ -1073,6 +1104,17 @@ public class RIL extends BaseCommands implements CommandsInterface {
             riljLoge("getRadioServiceProxy: serviceProxy == null");
         }
 
+        return serviceProxy;
+    }
+
+    /** Android 13 compatibility entry point used by vendor RIL subclasses. */
+    public synchronized RadioServiceProxy getRadioServiceProxy(int service, Message result) {
+        RadioServiceProxy serviceProxy = getRadioServiceProxy(service);
+        if ((serviceProxy == null || serviceProxy.isEmpty()) && result != null) {
+            AsyncResult.forMessage(result, null,
+                    CommandException.fromRilErrno(RADIO_NOT_AVAILABLE));
+            result.sendToTarget();
+        }
         return serviceProxy;
     }
 
@@ -1134,6 +1176,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
              * SecurityException and return correct value based on what HAL we're testing. */
             if (proxies == null) throw ex;
         }
+        mRadioVersion = mHalVersion.get(HAL_SERVICE_RADIO);
 
         mUseOldMncMccFormat = SystemProperties.getBoolean(
                 "ro.telephony.use_old_mnc_mcc_format", false);
@@ -1333,13 +1376,13 @@ public class RIL extends BaseCommands implements CommandsInterface {
         }
     }
 
-    private RILRequest obtainRequest(int request, Message result, WorkSource workSource) {
+    protected RILRequest obtainRequest(int request, Message result, WorkSource workSource) {
         RILRequest rr = RILRequest.obtain(request, result, workSource);
         addRequest(rr);
         return rr;
     }
 
-    private RILRequest obtainRequest(int request, Message result, WorkSource workSource,
+    protected RILRequest obtainRequest(int request, Message result, WorkSource workSource,
             Object... args) {
         RILRequest rr = RILRequest.obtain(request, result, workSource, args);
         addRequest(rr);
@@ -6130,7 +6173,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
      * @param service radio service the indication is for
      * @param indicationType indication type received
      */
-    void processIndication(int service, int indicationType) {
+    public void processIndication(int service, int indicationType) {
         if (indicationType == RadioIndicationType.UNSOLICITED_ACK_EXP) {
             sendAck(service);
             if (RILJ_LOGD) riljLog("Unsol response received; Sending ack to ril.cpp");
@@ -6139,7 +6182,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
         }
     }
 
-    void processRequestAck(int serial) {
+    public void processRequestAck(int serial) {
         RILRequest rr;
         synchronized (mRequestList) {
             rr = mRequestList.get(serial);
@@ -6639,7 +6682,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
     }
 
     @UnsupportedAppUsage
-    static String retToString(int req, Object ret) {
+    protected static String retToString(int req, Object ret) {
         if (ret == null) return "";
         switch (req) {
             // Don't log these return values, for privacy's sake.
@@ -6783,7 +6826,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
      * @param rilVer is the version of the ril or -1 if disconnected.
      */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    void notifyRegistrantsRilConnectionChanged(int rilVer) {
+    public void notifyRegistrantsRilConnectionChanged(int rilVer) {
         mRilVersion = rilVer;
         if (mRilConnectedRegistrants != null) {
             mRilConnectedRegistrants.notifyRegistrants(
@@ -6849,15 +6892,15 @@ public class RIL extends BaseCommands implements CommandsInterface {
     }
 
     @UnsupportedAppUsage
-    void riljLog(String msg) {
+    public void riljLog(String msg) {
         Rlog.d(RILJ_LOG_TAG, msg + (" [PHONE" + mPhoneId + "]"));
     }
 
-    void riljLoge(String msg) {
+    public void riljLoge(String msg) {
         Rlog.e(RILJ_LOG_TAG, msg + (" [PHONE" + mPhoneId + "]"));
     }
 
-    void riljLogv(String msg) {
+    public void riljLogv(String msg) {
         Rlog.v(RILJ_LOG_TAG, msg + (" [PHONE" + mPhoneId + "]"));
     }
 
@@ -6870,7 +6913,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
     }
 
     @UnsupportedAppUsage
-    void unsljLog(int response) {
+    public void unsljLog(int response) {
         String logStr = RILUtils.responseToString(response);
         if (RIL.RILJ_LOGD) {
             riljLog("[UNSL]< " + logStr);
@@ -6879,7 +6922,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
     }
 
     @UnsupportedAppUsage
-    void unsljLogMore(int response, String more) {
+    public void unsljLogMore(int response, String more) {
         String logStr = RILUtils.responseToString(response) + " " + more;
         if (RIL.RILJ_LOGD) {
             riljLog("[UNSL]< " + logStr);
@@ -6888,7 +6931,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
     }
 
     @UnsupportedAppUsage
-    void unsljLogRet(int response, Object ret) {
+    public void unsljLogRet(int response, Object ret) {
         String logStr = RILUtils.responseToString(response) + " " + retToString(response, ret);
         if (RIL.RILJ_LOGD) {
             riljLog("[UNSL]< " + logStr);
@@ -6897,7 +6940,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
     }
 
     @UnsupportedAppUsage
-    void unsljLogvRet(int response, Object ret) {
+    public void unsljLogvRet(int response, Object ret) {
         String logStr = RILUtils.responseToString(response) + " " + retToString(response, ret);
         if (RIL.RILJ_LOGV) {
             riljLogv("[UNSL]< " + logStr);

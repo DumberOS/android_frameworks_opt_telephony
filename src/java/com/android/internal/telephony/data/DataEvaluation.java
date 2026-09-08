@@ -296,6 +296,8 @@ public class DataEvaluation {
         ROAMING_DISABLED(false),
         /** Default data not selected. */
         DEFAULT_DATA_UNSELECTED(false),
+        /** Data is blocked by MediaTek fixed-dialing-number policy. */
+        MTK_FDN_ENABLED(false),
 
         // Belows are all hard failure reasons. A hard reason means no matter what the data should
         // not be allowed.

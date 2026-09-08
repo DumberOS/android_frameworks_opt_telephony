@@ -66,44 +66,44 @@ public class UiccCardApplication {
     public static final int AUTH_CONTEXT_UNDEFINED = PhoneConstants.AUTH_CONTEXT_UNDEFINED;
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private final Object  mLock = new Object();
+    protected final Object  mLock = new Object();
     private UiccProfile   mUiccProfile; //parent
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private AppState      mAppState;
+    protected AppState      mAppState;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private AppType       mAppType;
-    private int           mAuthContext;
+    protected AppType       mAppType;
+    protected int           mAuthContext;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private PersoSubState mPersoSubState;
+    protected PersoSubState mPersoSubState;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private String        mAid;
-    private String        mAppLabel;
-    private boolean       mPin1Replaced;
+    protected String        mAid;
+    protected String        mAppLabel;
+    protected boolean       mPin1Replaced;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private PinState      mPin1State;
-    private PinState      mPin2State;
+    protected PinState      mPin1State;
+    protected PinState      mPin2State;
     private boolean       mIccFdnEnabled;
     private boolean       mDesiredFdnEnabled;
     private boolean       mIccLockEnabled;
-    private boolean       mDesiredPinLocked;
+    protected boolean       mDesiredPinLocked;
 
     // App state will be ignored while deciding whether the card is ready or not.
     private boolean       mIgnoreApp;
     private boolean       mIccFdnAvailable = true; // Default is enabled.
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private CommandsInterface mCi;
-    private Context mContext;
-    private IccRecords mIccRecords;
-    private IccFileHandler mIccFh;
+    protected CommandsInterface mCi;
+    protected Context mContext;
+    protected IccRecords mIccRecords;
+    protected IccFileHandler mIccFh;
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean mDestroyed;//set to true once this App is commanded to be disposed of.
+    protected boolean mDestroyed;//set to true once this App is commanded to be disposed of.
 
     private RegistrantList mReadyRegistrants = new RegistrantList();
     private RegistrantList mDetectedRegistrants = new RegistrantList();
     private RegistrantList mPinLockedRegistrants = new RegistrantList();
-    private RegistrantList mNetworkLockedRegistrants = new RegistrantList();
+    protected RegistrantList mNetworkLockedRegistrants = new RegistrantList();
 
     public UiccCardApplication(UiccProfile uiccProfile,
                         IccCardApplicationStatus as,
@@ -202,7 +202,7 @@ public class UiccCardApplication {
         }
     }
 
-    private IccRecords createIccRecords(AppType type, Context c, CommandsInterface ci) {
+    protected IccRecords createIccRecords(AppType type, Context c, CommandsInterface ci) {
         if (type == AppType.APPTYPE_USIM || type == AppType.APPTYPE_SIM) {
             return new SIMRecords(this, c, ci);
         } else if (type == AppType.APPTYPE_RUIM || type == AppType.APPTYPE_CSIM){
@@ -215,7 +215,7 @@ public class UiccCardApplication {
         }
     }
 
-    private IccFileHandler createIccFileHandler(AppType type) {
+    protected IccFileHandler createIccFileHandler(AppType type) {
         switch (type) {
             case APPTYPE_SIM:
                 return new SIMFileHandler(this, mAid, mCi);
@@ -276,7 +276,7 @@ public class UiccCardApplication {
         }
     }
 
-    private void onChangeFdnDone(AsyncResult ar) {
+    protected void onChangeFdnDone(AsyncResult ar) {
         synchronized (mLock) {
             int attemptsRemaining = -1;
 
@@ -296,7 +296,7 @@ public class UiccCardApplication {
     }
 
     /** REMOVE when mIccLockEnabled is not needed, assumes mLock is held */
-    private void queryPin1State() {
+    protected void queryPin1State() {
         int serviceClassX = CommandsInterface.SERVICE_CLASS_VOICE +
                 CommandsInterface.SERVICE_CLASS_DATA +
                 CommandsInterface.SERVICE_CLASS_FAX;
@@ -352,7 +352,7 @@ public class UiccCardApplication {
     }
 
     /** REMOVE when mIccLockEnabled is not needed */
-    private void onChangeFacilityLock(AsyncResult ar) {
+    protected void onChangeFacilityLock(AsyncResult ar) {
         synchronized (mLock) {
             int attemptsRemaining = -1;
 
@@ -374,7 +374,7 @@ public class UiccCardApplication {
     /**
      * Parse the error response to obtain number of attempts remaining
      */
-    private int parsePinPukErrorResult(AsyncResult ar) {
+    protected int parsePinPukErrorResult(AsyncResult ar) {
         int[] result = (int[]) ar.result;
         if (result == null) {
             return -1;
@@ -389,7 +389,7 @@ public class UiccCardApplication {
         }
     }
 
-    private Handler mHandler = new Handler() {
+    protected Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg){
             AsyncResult ar;
@@ -521,7 +521,7 @@ public class UiccCardApplication {
      *
      * @param r Registrant to be notified. If null - all registrants will be notified
      */
-    private void notifyReadyRegistrantsIfNeeded(Registrant r) {
+    protected void notifyReadyRegistrantsIfNeeded(Registrant r) {
         if (mDestroyed) {
             return;
         }
@@ -568,7 +568,7 @@ public class UiccCardApplication {
      *
      * @param r Registrant to be notified. If null - all registrants will be notified
      */
-    private void notifyPinLockedRegistrantsIfNeeded(Registrant r) {
+    protected void notifyPinLockedRegistrantsIfNeeded(Registrant r) {
         if (mDestroyed) {
             return;
         }
@@ -596,7 +596,7 @@ public class UiccCardApplication {
      *
      * @param r Registrant to be notified. If null - all registrants will be notified
      */
-    private void notifyNetworkLockedRegistrantsIfNeeded(Registrant r) {
+    protected void notifyNetworkLockedRegistrantsIfNeeded(Registrant r) {
         if (mDestroyed) {
             return;
         }
@@ -979,12 +979,12 @@ public class UiccCardApplication {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void log(String msg) {
+    protected void log(String msg) {
         Rlog.d(LOG_TAG, msg);
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void loge(String msg) {
+    protected void loge(String msg) {
         Rlog.e(LOG_TAG, msg);
     }
 

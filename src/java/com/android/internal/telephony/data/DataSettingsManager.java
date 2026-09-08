@@ -640,6 +640,14 @@ public class DataSettingsManager extends Handler {
     }
 
     /**
+     * Android 13 compatibility API used by the MediaTek smart data switch implementation.
+     */
+    public boolean isDataAllowedInVoiceCall() {
+        return isMobileDataPolicyEnabled(TelephonyManager
+                .MOBILE_DATA_POLICY_DATA_ON_NON_DEFAULT_DURING_VOICE_CALL);
+    }
+
+    /**
      * Set mobile data policy enabled status
      * @param mobileDataPolicy The mobile data policy to set
      * @param enable {@code true} to enable the policy; {@code false} to disable.

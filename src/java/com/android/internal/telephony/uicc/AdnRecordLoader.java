@@ -28,28 +28,28 @@ import com.android.telephony.Rlog;
 import java.util.ArrayList;
 
 public class AdnRecordLoader extends Handler {
-    final static String LOG_TAG = "AdnRecordLoader";
-    final static boolean VDBG = false;
+    protected final static String LOG_TAG = "AdnRecordLoader";
+    protected final static boolean VDBG = false;
 
     //***** Instance Variables
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private IccFileHandler mFh;
-    int mEf;
-    int mExtensionEF;
-    int mPendingExtLoads;
-    Message mUserResponse;
-    String mPin2;
+    protected IccFileHandler mFh;
+    protected int mEf;
+    protected int mExtensionEF;
+    protected int mPendingExtLoads;
+    protected Message mUserResponse;
+    protected String mPin2;
 
     // For "load one"
-    int mRecordNumber;
+    protected int mRecordNumber;
 
     // for "load all"
-    ArrayList<AdnRecord> mAdns; // only valid after EVENT_ADN_LOAD_ALL_DONE
+    protected ArrayList<AdnRecord> mAdns; // only valid after EVENT_ADN_LOAD_ALL_DONE
 
     // Either an AdnRecord or a reference to adns depending
     // if this is a load one or load all operation
-    Object mResult;
+    protected Object mResult;
 
     //***** Event Constants
 
@@ -63,7 +63,7 @@ public class AdnRecordLoader extends Handler {
     //***** Constructor
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    AdnRecordLoader(IccFileHandler fh) {
+    public AdnRecordLoader(IccFileHandler fh) {
         // The telephony unit-test cases may create AdnRecords
         // in secondary threads
         super(Looper.getMainLooper());
@@ -71,7 +71,7 @@ public class AdnRecordLoader extends Handler {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private String getEFPath(int efid) {
+    protected String getEFPath(int efid) {
         if (efid == IccConstants.EF_ADN) {
             return IccConstants.MF_SIM + IccConstants.DF_TELECOM;
         }

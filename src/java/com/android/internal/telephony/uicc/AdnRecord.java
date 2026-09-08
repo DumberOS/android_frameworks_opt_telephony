@@ -43,18 +43,18 @@ public class AdnRecord implements Parcelable {
     //***** Instance Variables
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    String mAlphaTag = null;
+    public String mAlphaTag = null;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    String mNumber = null;
+    public String mNumber = null;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    String[] mEmails;
-    String[] mAdditionalNumbers = null;
+    public String[] mEmails;
+    public String[] mAdditionalNumbers = null;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    int mExtRecord = 0xff;
+    public int mExtRecord = 0xff;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    int mEfid;                   // or 0 if none
+    public int mEfid;                   // or 0 if none
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    int mRecordNumber;           // or 0 if none
+    public int mRecordNumber;           // or 0 if none
 
 
     //***** Constants

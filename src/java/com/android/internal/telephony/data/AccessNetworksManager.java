@@ -423,11 +423,22 @@ public class AccessNetworksManager extends Handler {
         /**
          * Called when preferred transport changed.
          *
+         * <p>This overload is retained for Android 13 telephony extensions.
+         *
+         * @param networkCapability The network capability.
+         */
+        public void onPreferredTransportChanged(@NetCapability int networkCapability) {}
+
+        /**
+         * Called when preferred transport changed.
+         *
          * @param networkCapability The network capability.
          * @param forceReconnect whether enforce reconnection to the preferred transport type.
          */
-        public abstract void onPreferredTransportChanged(
-                @NetCapability int networkCapability, boolean forceReconnect);
+        public void onPreferredTransportChanged(
+                @NetCapability int networkCapability, boolean forceReconnect) {
+            onPreferredTransportChanged(networkCapability);
+        }
     }
 
     /**

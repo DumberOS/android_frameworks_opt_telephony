@@ -103,7 +103,7 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
 
      // member variables
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    protected final CommandsInterface mCi;
+    public final CommandsInterface mCi;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     protected final UiccCardApplication mParentApp;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
@@ -111,16 +111,16 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
 
     public static class LoadLinearFixedContext {
 
-        int mEfid;
+        public int mEfid;
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-        int mRecordNum, mRecordSize, mCountRecords;
-        boolean mLoadAll;
-        String mPath;
+        public int mRecordNum, mRecordSize, mCountRecords;
+        public boolean mLoadAll;
+        public String mPath;
 
-        Message mOnLoaded;
+        public Message mOnLoaded;
 
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-        ArrayList<byte[]> results;
+        public ArrayList<byte[]> results;
 
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         LoadLinearFixedContext(int efid, int recordNum, Message onLoaded) {
@@ -438,7 +438,7 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
 
     //***** Private Methods
 
-    private void sendResult(Message response, Object result, Throwable ex) {
+    protected void sendResult(Message response, Object result, Throwable ex) {
         if (response == null) {
             return;
         }
@@ -448,7 +448,7 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
         response.sendToTarget();
     }
 
-    private boolean processException(Message response, AsyncResult ar) {
+    protected boolean processException(Message response, AsyncResult ar) {
         IccException iccException;
         boolean flag = false;
         IccIoResult result = (IccIoResult) ar.result;

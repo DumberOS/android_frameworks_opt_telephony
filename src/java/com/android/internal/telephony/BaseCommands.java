@@ -177,7 +177,7 @@ public abstract class BaseCommands implements CommandsInterface {
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     protected int mAllowedNetworkTypesBitmask;
     // CDMA subscription received from PhoneFactory
-    protected int mCdmaSubscription;
+    public int mCdmaSubscription;
     // Type of Phone, GSM or CDMA. Set by GsmCdmaPhone.
     @UnsupportedAppUsage
     protected int mPhoneType;

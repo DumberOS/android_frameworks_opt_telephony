@@ -319,7 +319,7 @@ public class SignalStrengthController extends Handler {
         setDefaultSignalStrengthReportingCriteria();
     }
 
-    void getSignalStrengthFromCi() {
+    public void getSignalStrengthFromCi() {
         mCi.getSignalStrength(obtainMessage(EVENT_GET_SIGNAL_STRENGTH));
     }
 
@@ -786,22 +786,24 @@ public class SignalStrengthController extends Handler {
         return currMinHysteresisDb;
     }
 
-    void setSignalStrengthDefaultValues() {
+    public void setSignalStrengthDefaultValues() {
         mSignalStrength = new SignalStrength();
         mSignalStrengthUpdatedTime = System.currentTimeMillis();
     }
 
-    void notifySignalStrength() {
+    public boolean notifySignalStrength() {
         if (!mSignalStrength.equals(mLastSignalStrength)) {
             try {
                 mSignalStrengthChangedRegistrants.notifyRegistrants();
                 mPhone.notifySignalStrength();
                 mLastSignalStrength = mSignalStrength;
+                return true;
             } catch (NullPointerException ex) {
                 loge("updateSignalStrength() Phone already destroyed: " + ex
                         + "SignalStrength not notified");
             }
         }
+        return false;
     }
 
     /**

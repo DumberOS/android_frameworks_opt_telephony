@@ -69,7 +69,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class RadioResponse extends IRadioResponse.Stub {
-    RIL mRil;
+    public RIL mRil;
 
     public RadioResponse(RIL ril) {
         mRil = ril;
@@ -80,7 +80,7 @@ public class RadioResponse extends IRadioResponse.Stub {
      * @param msg Response message to be sent
      * @param ret Return object to be included in the response message
      */
-    static void sendMessageResponse(Message msg, Object ret) {
+    public static void sendMessageResponse(Message msg, Object ret) {
         if (msg != null) {
             AsyncResult.forMessage(msg, ret, null);
             msg.sendToTarget();
@@ -1951,7 +1951,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         responseVoid(responseInfo);
     }
 
-    private void responseInts(RadioResponseInfo responseInfo, int ...var) {
+    public void responseInts(RadioResponseInfo responseInfo, int ...var) {
         final ArrayList<Integer> ints = new ArrayList<>();
         for (int i = 0; i < var.length; i++) {
             ints.add(var[i]);
@@ -1959,7 +1959,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         responseIntArrayList(responseInfo, ints);
     }
 
-    private void responseInts_1_6(android.hardware.radio.V1_6.RadioResponseInfo responseInfo,
+    public void responseInts_1_6(android.hardware.radio.V1_6.RadioResponseInfo responseInfo,
             int ...var) {
         final ArrayList<Integer> ints = new ArrayList<>();
         for (int i = 0; i < var.length; i++) {
@@ -1984,7 +1984,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         responseIntArrayList(service, ril, responseInfo, ints);
     }
 
-    private void responseIntArrayList(RadioResponseInfo responseInfo, ArrayList<Integer> var) {
+    public void responseIntArrayList(RadioResponseInfo responseInfo, ArrayList<Integer> var) {
         RILRequest rr = mRil.processResponse(responseInfo);
 
         if (rr != null) {
@@ -1999,7 +1999,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         }
     }
 
-    private void responseIntArrayList_1_6(
+    public void responseIntArrayList_1_6(
             android.hardware.radio.V1_6.RadioResponseInfo responseInfo, ArrayList<Integer> var) {
         RILRequest rr = mRil.processResponse_1_6(responseInfo);
 
@@ -2159,7 +2159,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         }
     }
 
-    private void responseVoid(RadioResponseInfo responseInfo) {
+    public void responseVoid(RadioResponseInfo responseInfo) {
         RILRequest rr = mRil.processResponse(responseInfo);
 
         if (rr != null) {
@@ -2171,7 +2171,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         }
     }
 
-    private void responseVoid_1_6(android.hardware.radio.V1_6.RadioResponseInfo responseInfo) {
+    public void responseVoid_1_6(android.hardware.radio.V1_6.RadioResponseInfo responseInfo) {
         RILRequest rr = mRil.processResponse_1_6(responseInfo);
 
         if (rr != null) {
@@ -2202,7 +2202,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         }
     }
 
-    private void responseString(RadioResponseInfo responseInfo, String str) {
+    public void responseString(RadioResponseInfo responseInfo, String str) {
         RILRequest rr = mRil.processResponse(responseInfo);
 
         if (rr != null) {
@@ -2232,7 +2232,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         }
     }
 
-    private void responseStrings(RadioResponseInfo responseInfo, String ...str) {
+    public void responseStrings(RadioResponseInfo responseInfo, String ...str) {
         ArrayList<String> strings = new ArrayList<>();
         for (int i = 0; i < str.length; i++) {
             strings.add(str[i]);
@@ -2256,7 +2256,7 @@ public class RadioResponse extends IRadioResponse.Stub {
         responseStringArrayList(service, ril, responseInfo, strings);
     }
 
-    static void responseStringArrayList(RIL ril, RadioResponseInfo responseInfo,
+    public static void responseStringArrayList(RIL ril, RadioResponseInfo responseInfo,
             ArrayList<String> strings) {
         RILRequest rr = ril.processResponse(responseInfo);
 

@@ -42,6 +42,7 @@ import android.telephony.ims.ImsReasonInfo;
 import android.telephony.ims.MediaQualityStatus;
 
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.telephony.Rlog;
 
 import java.util.List;
@@ -55,12 +56,16 @@ public class DefaultPhoneNotifier implements PhoneNotifier {
     private static final String LOG_TAG = "DefaultPhoneNotifier";
     private static final boolean DBG = false; // STOPSHIP if true
 
-    private TelephonyRegistryManager mTelephonyRegistryMgr;
+    protected TelephonyRegistryManager mTelephonyRegistryMgr;
 
     /** Feature flags */
     @NonNull
     private final FeatureFlags mFeatureFlags;
 
+    /** Android 13 vendor compatibility entry point. */
+    public DefaultPhoneNotifier(Context context) {
+        this(context, new FeatureFlagsImpl());
+    }
 
     public DefaultPhoneNotifier(Context context, @NonNull FeatureFlags featureFlags) {
         mTelephonyRegistryMgr = (TelephonyRegistryManager) context.getSystemService(

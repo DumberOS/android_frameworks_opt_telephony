@@ -81,17 +81,19 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConfigurationManager;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.RadioConfig;
+import com.android.internal.telephony.SubscriptionController;
+import com.android.internal.telephony.SubscriptionController.WatchedInt;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.data.DataNetworkController.NetworkRequestList;
 import com.android.internal.telephony.data.DataSettingsManager.DataSettingsManagerCallback;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.DataSwitch;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent.OnDemandDataSwitch;
 import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
-import com.android.internal.telephony.subscription.SubscriptionManagerService.WatchedInt;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.telephony.Rlog;
 
@@ -136,38 +138,38 @@ public class PhoneSwitcher extends Handler {
      * call to allow for carrier specific operations, such as provide SUPL updates during or after
      * the emergency call, since some modems do not support these operations on the non DDS.
      */
-    private static final class EmergencyOverrideRequest {
+    public static final class EmergencyOverrideRequest {
         /* The Phone ID that the DDS should be set to. */
-        int mPhoneId = INVALID_PHONE_INDEX;
+        public int mPhoneId = INVALID_PHONE_INDEX;
         /* The time after the emergency call ends that the DDS should be overridden for. */
-        int mGnssOverrideTimeMs = -1;
+        public int mGnssOverrideTimeMs = -1;
         /* A callback to the requester notifying them if the initial call to the modem to override
          * the DDS was successful.
          */
-        CompletableFuture<Boolean> mOverrideCompleteFuture;
+        public CompletableFuture<Boolean> mOverrideCompleteFuture;
         /* In the special case that the device goes into emergency callback mode after the emergency
          * call ends, keep the override until ECM finishes and then start the mGnssOverrideTimeMs
          * timer to leave DDS override.
          */
-        boolean mRequiresEcmFinish = false;
+        public boolean mRequiresEcmFinish = false;
 
         /*
          * Keeps track of whether or not this request has already serviced the outgoing emergency
          * call. Once finished, do not delay for any other calls.
          */
-        boolean mPendingOriginatingCall = true;
+        public boolean mPendingOriginatingCall = true;
 
         /**
          * @return true if there is a pending override complete callback.
          */
-        boolean isCallbackAvailable() {
+        public boolean isCallbackAvailable() {
             return mOverrideCompleteFuture != null;
         }
 
         /**
          * Send the override complete callback the result of setting the DDS to the new value.
          */
-        void sendOverrideCompleteCallbackResultAndClear(boolean result) {
+        public void sendOverrideCompleteCallbackResultAndClear(boolean result) {
             if (isCallbackAvailable()) {
                 mOverrideCompleteFuture.complete(result);
                 mOverrideCompleteFuture = null;
@@ -186,6 +188,7 @@ public class PhoneSwitcher extends Handler {
     private final @NonNull NetworkRequestList mNetworkRequestList = new NetworkRequestList();
     protected final RegistrantList mActivePhoneRegistrants;
     private final SubscriptionManagerService mSubscriptionManagerService;
+    protected final SubscriptionController mSubscriptionController;
     private final @NonNull FeatureFlags mFlags;
     protected final Context mContext;
     private final LocalLog mLocalLog;
@@ -256,7 +259,7 @@ public class PhoneSwitcher extends Handler {
     // If non-null, An emergency call is about to be started, is ongoing, or has just ended and we
     // are overriding the DDS.
     // Internal state, should ONLY be accessed/modified inside of the handler.
-    private EmergencyOverrideRequest mEmergencyOverride;
+    protected EmergencyOverrideRequest mEmergencyOverride;
 
     private ISetOpportunisticDataCallback mSetOpptSubCallback;
 
@@ -322,7 +325,7 @@ public class PhoneSwitcher extends Handler {
     private ConnectivityManager mConnectivityManager;
     private int mImsRegistrationTech = REGISTRATION_TECH_NONE;
 
-    private List<Set<CommandException.Error>> mCurrentDdsSwitchFailure;
+    protected List<Set<CommandException.Error>> mCurrentDdsSwitchFailure;
 
     /** Data settings manager callback. Key is the phone id. */
     private final @NonNull Map<Integer, DataSettingsManagerCallback> mDataSettingsManagerCallbacks =
@@ -461,6 +464,11 @@ public class PhoneSwitcher extends Handler {
     }
 
     @VisibleForTesting
+    public PhoneSwitcher(int maxActivePhones, Context context, Looper looper) {
+        this(maxActivePhones, context, looper, new FeatureFlagsImpl());
+    }
+
+    @VisibleForTesting
     public PhoneSwitcher(int maxActivePhones, Context context, Looper looper,
             @NonNull FeatureFlags featureFlags) {
         super(looper);
@@ -473,6 +481,7 @@ public class PhoneSwitcher extends Handler {
         mLocalLog = new LocalLog(MAX_LOCAL_LOG_LINES);
 
         mSubscriptionManagerService = SubscriptionManagerService.getInstance();
+        mSubscriptionController = SubscriptionController.getInstance();
 
         mRadioConfig = RadioConfig.getInstance();
         mValidator = CellularNetworkValidator.getInstance();
@@ -1348,6 +1357,28 @@ public class PhoneSwitcher extends Handler {
         return subInfo != null && subInfo.isActive();
     }
 
+    /** Android 13 compatibility entry point used by vendor PhoneSwitcher subclasses. */
+    protected int getSubIdForDefaultNetworkRequests() {
+        return isActiveSubId(mAutoSelectedDataSubId)
+                ? mAutoSelectedDataSubId : mPrimaryDataSubId;
+    }
+
+    /**
+     * IWLAN and cross-SIM IMS calls do not require an in-call default-data switch.
+     */
+    protected boolean isImsOnOriginalNetwork(Phone phone) {
+        if (phone == null || !SubscriptionManager.isValidPhoneId(phone.getPhoneId())) {
+            return false;
+        }
+        int imsRegTech = mImsRegTechProvider.get(mContext, phone.getPhoneId());
+        boolean isOnOriginalNetwork = imsRegTech != REGISTRATION_TECH_IWLAN
+                && imsRegTech != REGISTRATION_TECH_CROSS_SIM;
+        if (!isOnOriginalNetwork) {
+            log("IMS call on IWLAN or cross SIM. Call will be ignored for DDS switch");
+        }
+        return isOnOriginalNetwork;
+    }
+
     // This updates mPreferredDataPhoneId which decides which phone should handle default network
     // requests.
     protected void updatePreferredDataPhoneId() {
@@ -1431,7 +1462,7 @@ public class PhoneSwitcher extends Handler {
         return findPhoneById(mSubscriptionManagerService.getPhoneId(subId));
     }
 
-    private Phone findPhoneById(final int phoneId) {
+    protected Phone findPhoneById(final int phoneId) {
         if (!SubscriptionManager.isValidPhoneId(phoneId)) {
             return null;
         }
@@ -1735,7 +1766,7 @@ public class PhoneSwitcher extends Handler {
      * Log debug messages.
      * @param s debug messages
      */
-    private void log(@NonNull String s) {
+    protected void log(@NonNull String s) {
         Rlog.d(LOG_TAG, s);
     }
 

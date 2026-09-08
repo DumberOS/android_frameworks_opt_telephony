@@ -23,17 +23,24 @@ import android.content.res.XmlResourceParser;
 import android.database.Cursor;
 import android.os.Handler;
 import android.os.Looper;
+import android.telephony.data.DataProfile;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
 import android.text.TextUtils;
+import android.util.SparseArray;
 
 import com.android.ims.ImsManager;
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
 import com.android.internal.telephony.cdma.EriManager;
 import com.android.internal.telephony.data.AccessNetworksManager;
+import com.android.internal.telephony.data.DataConfigManager;
+import com.android.internal.telephony.data.DataEvaluation.DataAllowedReason;
+import com.android.internal.telephony.data.DataNetwork;
+import com.android.internal.telephony.data.DataNetwork.DataNetworkCallback;
 import com.android.internal.telephony.data.DataNetworkController;
+import com.android.internal.telephony.data.DataNetworkController.NetworkRequestList;
 import com.android.internal.telephony.data.DataProfileManager;
 import com.android.internal.telephony.data.DataServiceManager;
 import com.android.internal.telephony.data.DataSettingsManager;
@@ -52,6 +59,7 @@ import com.android.internal.telephony.security.CellularNetworkSecuritySafetySour
 import com.android.internal.telephony.security.NullCipherNotifier;
 import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.UiccCard;
+import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.uicc.UiccProfile;
 import com.android.telephony.Rlog;
 
@@ -286,7 +294,12 @@ public class TelephonyComponentFactory {
      */
     public GsmCdmaCallTracker makeGsmCdmaCallTracker(GsmCdmaPhone phone,
             @NonNull FeatureFlags featureFlags) {
-        return new GsmCdmaCallTracker(phone, featureFlags);
+        return makeGsmCdmaCallTracker(phone);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public GsmCdmaCallTracker makeGsmCdmaCallTracker(GsmCdmaPhone phone) {
+        return new GsmCdmaCallTracker(phone, new FeatureFlagsImpl());
     }
 
     public SmsStorageMonitor makeSmsStorageMonitor(Phone phone) {
@@ -299,7 +312,12 @@ public class TelephonyComponentFactory {
 
     public ServiceStateTracker makeServiceStateTracker(GsmCdmaPhone phone, CommandsInterface ci,
             @NonNull FeatureFlags featureFlags) {
-        return new ServiceStateTracker(phone, ci, featureFlags);
+        return makeServiceStateTracker(phone, ci);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public ServiceStateTracker makeServiceStateTracker(GsmCdmaPhone phone, CommandsInterface ci) {
+        return new ServiceStateTracker(phone, ci, new FeatureFlagsImpl());
     }
 
     /**
@@ -348,12 +366,27 @@ public class TelephonyComponentFactory {
     }
 
     /**
+     * Create the UICC controller. Legacy vendor factories override this to install their
+     * controller before SIM-state listeners are registered.
+     */
+    public UiccController makeUiccController(Context context) {
+        return new UiccController(context);
+    }
+
+    /**
      * Create a new UiccProfile object.
      */
     public UiccProfile makeUiccProfile(Context context, CommandsInterface ci, IccCardStatus ics,
                                        int phoneId, UiccCard uiccCard, Object lock,
             @NonNull FeatureFlags flags) {
-        return new UiccProfile(context, ci, ics, phoneId, uiccCard, lock, flags);
+        return makeUiccProfile(context, ci, ics, phoneId, uiccCard, lock);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public UiccProfile makeUiccProfile(Context context, CommandsInterface ci, IccCardStatus ics,
+            int phoneId, UiccCard uiccCard, Object lock) {
+        return new UiccProfile(context, ci, ics, phoneId, uiccCard, lock,
+                new FeatureFlagsImpl());
     }
 
     public EriManager makeEriManager(Phone phone, int eriFileSource) {
@@ -393,6 +426,16 @@ public class TelephonyComponentFactory {
     public InboundSmsTracker makeInboundSmsTracker(Context context, Cursor cursor,
             boolean isCurrentFormat3gpp2) {
         return new InboundSmsTracker(context, cursor, isCurrentFormat3gpp2);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public DefaultPhoneNotifier makeDefaultPhoneNotifier(Context context) {
+        return new DefaultPhoneNotifier(context);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public ImsPhone makeImsPhone(Context context, PhoneNotifier notifier, Phone defaultPhone) {
+        return new ImsPhone(context, notifier, defaultPhone, new FeatureFlagsImpl());
     }
 
     /**
@@ -443,7 +486,12 @@ public class TelephonyComponentFactory {
      */
     public DeviceStateMonitor makeDeviceStateMonitor(Phone phone,
             @NonNull FeatureFlags featureFlags) {
-        return new DeviceStateMonitor(phone, featureFlags);
+        return makeDeviceStateMonitor(phone);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public DeviceStateMonitor makeDeviceStateMonitor(Phone phone) {
+        return new DeviceStateMonitor(phone, new FeatureFlagsImpl());
     }
 
     /**
@@ -486,20 +534,68 @@ public class TelephonyComponentFactory {
             int phoneId, int precisePhoneType,
             TelephonyComponentFactory telephonyComponentFactory,
             @NonNull FeatureFlags featureFlags) {
+        return makePhone(context, ci, notifier, phoneId, precisePhoneType,
+                telephonyComponentFactory);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public Phone makePhone(Context context, CommandsInterface ci, PhoneNotifier notifier,
+            int phoneId, int precisePhoneType,
+            TelephonyComponentFactory telephonyComponentFactory) {
         return new GsmCdmaPhone(context, ci, notifier, phoneId, precisePhoneType,
-                telephonyComponentFactory, featureFlags);
+                telephonyComponentFactory, new FeatureFlagsImpl());
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public RIL makeRil(Context context, int preferredNetworkType, int cdmaSubscription,
+            Integer instanceId) {
+        return new RIL(context, preferredNetworkType, cdmaSubscription, instanceId);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public void initRadioManager(Context context, int numPhones,
+            CommandsInterface[] commandsInterfaces) {
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public void makeSmartDataSwitchAssistant(Context context, Phone[] phones) {
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public void makeDataHelper(Context context, Phone[] phones) {
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public void initCarrierExpress() {
     }
 
     public PhoneSwitcher makePhoneSwitcher(int maxDataAttachModemCount, Context context,
             Looper looper, @NonNull FeatureFlags featureFlags) {
-        return PhoneSwitcher.make(maxDataAttachModemCount, context, looper, featureFlags);
+        return makePhoneSwitcher(maxDataAttachModemCount, context, looper);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public PhoneSwitcher makePhoneSwitcher(int maxDataAttachModemCount, Context context,
+            Looper looper) {
+        return PhoneSwitcher.make(maxDataAttachModemCount, context, looper,
+                new FeatureFlagsImpl());
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public ProxyController makeProxyController(Context context) {
+        return new ProxyController(context, new FeatureFlagsImpl());
     }
 
     /**
      * Create a new DisplayInfoController.
      */
     public DisplayInfoController makeDisplayInfoController(Phone phone, FeatureFlags featureFlags) {
-        return new DisplayInfoController(phone, featureFlags);
+        return makeDisplayInfoController(phone);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public DisplayInfoController makeDisplayInfoController(Phone phone) {
+        return new DisplayInfoController(phone, new FeatureFlagsImpl());
     }
 
     /**
@@ -538,7 +634,26 @@ public class TelephonyComponentFactory {
      */
     public DataNetworkController makeDataNetworkController(Phone phone, Looper looper,
             @NonNull FeatureFlags featureFlags) {
-        return new DataNetworkController(phone, looper, featureFlags);
+        return makeDataNetworkController(phone, looper);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public DataNetworkController makeDataNetworkController(Phone phone, Looper looper) {
+        return new DataNetworkController(phone, looper, new FeatureFlagsImpl());
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public DataNetwork makeDataNetwork(Phone phone, Looper looper,
+            SparseArray<DataServiceManager> dataServiceManagers, DataProfile dataProfile,
+            NetworkRequestList networkRequestList, int transport,
+            DataAllowedReason dataAllowedReason, DataNetworkCallback callback) {
+        return new DataNetwork(phone, new FeatureFlagsImpl(), looper, dataServiceManagers,
+                dataProfile, networkRequestList, transport, dataAllowedReason, callback);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public DataConfigManager makeDataConfigManager(Phone phone, Looper looper) {
+        return new DataConfigManager(phone, looper, new FeatureFlagsImpl());
     }
 
     /**
@@ -558,8 +673,17 @@ public class TelephonyComponentFactory {
             @NonNull DataServiceManager dataServiceManager, @NonNull Looper looper,
             @NonNull FeatureFlags featureFlags,
             @NonNull DataProfileManager.DataProfileManagerCallback callback) {
+        return makeDataProfileManager(phone, dataNetworkController, dataServiceManager, looper,
+                callback);
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public @NonNull DataProfileManager makeDataProfileManager(@NonNull Phone phone,
+            @NonNull DataNetworkController dataNetworkController,
+            @NonNull DataServiceManager dataServiceManager, @NonNull Looper looper,
+            @NonNull DataProfileManager.DataProfileManagerCallback callback) {
         return new DataProfileManager(phone, dataNetworkController, dataServiceManager, looper,
-                featureFlags, callback);
+                new FeatureFlagsImpl(), callback);
     }
 
     /**

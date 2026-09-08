@@ -46,11 +46,11 @@ public class RILRequest {
 
     //***** Instance Variables
     @UnsupportedAppUsage
-    int mSerial;
+    public int mSerial;
     @UnsupportedAppUsage
-    int mRequest;
+    public int mRequest;
     @UnsupportedAppUsage
-    Message mResult;
+    public Message mResult;
     RILRequest mNext;
     int mWakeLockType;
     WorkSource mWorkSource;
@@ -211,7 +211,7 @@ public class RILRequest {
     }
 
     @UnsupportedAppUsage
-    String serialString() {
+    public String serialString() {
         //Cheesy way to do %04d
         StringBuilder sb = new StringBuilder(8);
         String sn;

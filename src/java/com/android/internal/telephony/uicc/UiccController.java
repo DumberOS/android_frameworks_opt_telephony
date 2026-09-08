@@ -63,6 +63,7 @@ import com.android.internal.telephony.PhoneConfigurationManager;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.RadioConfig;
+import com.android.internal.telephony.TelephonyComponentFactory;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
@@ -156,10 +157,10 @@ public class UiccController extends Handler {
 
     // this needs to be here, because on bootup we dont know which index maps to which UiccSlot
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private CommandsInterface[] mCis;
+    protected CommandsInterface[] mCis;
     @VisibleForTesting
     public UiccSlot[] mUiccSlots;
-    private int[] mPhoneIdToSlotId;
+    protected int[] mPhoneIdToSlotId;
     private boolean mIsSlotStatusSupported = true;
 
     // This maps the externally exposed card ID (int) to the internal card ID string (ICCID/EID).
@@ -221,7 +222,7 @@ public class UiccController extends Handler {
     private static final String DEFAULT_CARD = "default_card";
 
     @UnsupportedAppUsage
-    private static final Object mLock = new Object();
+    protected static final Object mLock = new Object();
     @UnsupportedAppUsage
     private static UiccController mInstance;
     @VisibleForTesting
@@ -253,12 +254,14 @@ public class UiccController extends Handler {
             if (mInstance != null) {
                 throw new RuntimeException("UiccController.make() should only be called once");
             }
-            mInstance = new UiccController(c);
+            mInstance = TelephonyComponentFactory.getInstance()
+                    .inject(TelephonyComponentFactory.class.getName())
+                    .makeUiccController(c);
             return mInstance;
         }
     }
 
-    private UiccController(Context c) {
+    public UiccController(Context c) {
         if (DBG) log("Creating UiccController");
         mContext = c;
         mCis = PhoneFactory.getCommandsInterfaces();
@@ -671,7 +674,7 @@ public class UiccController extends Handler {
         }
     }
 
-    private Integer getCiIndex(Message msg) {
+    protected Integer getCiIndex(Message msg) {
         AsyncResult ar;
         Integer index = new Integer(PhoneConstants.DEFAULT_SLOT_INDEX);
 
@@ -1016,7 +1019,7 @@ public class UiccController extends Handler {
         });
     }
 
-    private synchronized void onGetIccCardStatusDone(AsyncResult ar, Integer index) {
+    protected synchronized void onGetIccCardStatusDone(AsyncResult ar, Integer index) {
         if (ar.exception != null) {
             Rlog.e(LOG_TAG,"Error getting ICC status. "
                     + "RIL_REQUEST_GET_ICC_STATUS should "

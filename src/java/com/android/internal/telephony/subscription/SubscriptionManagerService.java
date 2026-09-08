@@ -4244,6 +4244,17 @@ public class SubscriptionManagerService extends ISub.Stub {
         return infoInternal != null ? infoInternal.toSubscriptionInfo() : null;
     }
 
+    /** Internal compatibility lookup for Android 13 vendor telephony components. */
+    @Nullable
+    public SubscriptionInfo getSubscriptionInfoForIccId(@Nullable String iccId) {
+        if (TextUtils.isEmpty(iccId)) {
+            return null;
+        }
+        SubscriptionInfoInternal infoInternal = mSubscriptionDatabaseManager
+                .getSubscriptionInfoInternalByIccId(IccUtils.stripTrailingFs(iccId));
+        return infoInternal != null ? infoInternal.toSubscriptionInfo() : null;
+    }
+
     /**
      * Called when SIM becomes inactive.
      *

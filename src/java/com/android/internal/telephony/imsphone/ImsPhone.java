@@ -124,6 +124,7 @@ import com.android.internal.telephony.domainselection.DomainSelectionResolver;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.emergency.EmergencyStateTracker;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.internal.telephony.gsm.SuppServiceNotification;
 import com.android.internal.telephony.metrics.ImsStats;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
@@ -264,15 +265,15 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     // Instance Variables
-    Phone mDefaultPhone;
+    public Phone mDefaultPhone;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    ImsPhoneCallTracker mCT;
-    ImsExternalCallTracker mExternalCallTracker;
+    public ImsPhoneCallTracker mCT;
+    protected ImsExternalCallTracker mExternalCallTracker;
     ImsNrSaModeHandler mImsNrSaModeHandler;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private ArrayList <ImsPhoneMmiCode> mPendingMMIs = new ArrayList<ImsPhoneMmiCode>();
+    protected ArrayList <ImsPhoneMmiCode> mPendingMMIs = new ArrayList<ImsPhoneMmiCode>();
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private ServiceState mSS = new ServiceState();
+    protected ServiceState mSS = new ServiceState();
 
     private final ImsManagerFactory mImsManagerFactory;
 
@@ -298,7 +299,7 @@ public class ImsPhone extends ImsPhoneBase {
     private ImsRegistrationCallbackHelper mImsMmTelRegistrationHelper;
 
     // The roaming state if currently in service, or the last roaming state when was in service.
-    private boolean mLastKnownRoamingState = false;
+    protected boolean mLastKnownRoamingState = false;
 
     private boolean mIsInImsEcm = false;
 
@@ -461,9 +462,22 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     // Constructors
+    /** Android 13 vendor compatibility constructor. */
+    public ImsPhone(Context context, PhoneNotifier notifier, Phone defaultPhone) {
+        this(context, notifier, defaultPhone, new FeatureFlagsImpl());
+    }
+
     public ImsPhone(Context context, PhoneNotifier notifier,
             Phone defaultPhone, FeatureFlags featureFlags) {
         this(context, notifier, defaultPhone, ImsManager::getInstance, false, featureFlags);
+    }
+
+    /** Android 13 vendor compatibility constructor. */
+    @VisibleForTesting
+    public ImsPhone(Context context, PhoneNotifier notifier, Phone defaultPhone,
+            ImsManagerFactory imsManagerFactory, boolean unitTestMode) {
+        this(context, notifier, defaultPhone, imsManagerFactory, unitTestMode,
+                new FeatureFlagsImpl());
     }
 
     @VisibleForTesting
@@ -488,7 +502,7 @@ public class ImsPhone extends ImsPhoneBase {
                         .inject(ImsNrSaModeHandler.class.getName())
                         .makeImsNrSaModeHandler(this);
         mCT = TelephonyComponentFactory.getInstance().inject(ImsPhoneCallTracker.class.getName())
-                .makeImsPhoneCallTracker(this, featureFlags);
+                .makeImsPhoneCallTracker(this);
         mCT.registerPhoneStateListener(mExternalCallTracker);
         mExternalCallTracker.setCallPuller(mCT);
 
@@ -1104,7 +1118,7 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isValidCommandInterfaceCFReason (int commandInterfaceCFReason) {
+    protected boolean isValidCommandInterfaceCFReason (int commandInterfaceCFReason) {
         switch (commandInterfaceCFReason) {
         case CF_REASON_UNCONDITIONAL:
         case CF_REASON_BUSY:
@@ -1119,7 +1133,7 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isValidCommandInterfaceCFAction (int commandInterfaceCFAction) {
+    protected boolean isValidCommandInterfaceCFAction (int commandInterfaceCFAction) {
         switch (commandInterfaceCFAction) {
         case CF_ACTION_DISABLE:
         case CF_ACTION_ENABLE:
@@ -1132,12 +1146,12 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private  boolean isCfEnable(int action) {
+    protected boolean isCfEnable(int action) {
         return (action == CF_ACTION_ENABLE) || (action == CF_ACTION_REGISTRATION);
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private int getConditionFromCFReason(int reason) {
+    protected int getConditionFromCFReason(int reason) {
         switch(reason) {
             case CF_REASON_UNCONDITIONAL: return ImsUtInterface.CDIV_CF_UNCONDITIONAL;
             case CF_REASON_BUSY: return ImsUtInterface.CDIV_CF_BUSY;
@@ -1152,7 +1166,7 @@ public class ImsPhone extends ImsPhoneBase {
         return ImsUtInterface.INVALID;
     }
 
-    private int getCFReasonFromCondition(int condition) {
+    protected int getCFReasonFromCondition(int condition) {
         switch(condition) {
             case ImsUtInterface.CDIV_CF_UNCONDITIONAL: return CF_REASON_UNCONDITIONAL;
             case ImsUtInterface.CDIV_CF_BUSY: return CF_REASON_BUSY;
@@ -1168,7 +1182,7 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private int getActionFromCFAction(int action) {
+    protected int getActionFromCFAction(int action) {
         switch(action) {
             case CF_ACTION_DISABLE: return ImsUtInterface.ACTION_DEACTIVATION;
             case CF_ACTION_ENABLE: return ImsUtInterface.ACTION_ACTIVATION;
@@ -1346,7 +1360,7 @@ public class ImsPhone extends ImsPhoneBase {
         }
     }
 
-    private int getCBTypeFromFacility(String facility) {
+    protected int getCBTypeFromFacility(String facility) {
         if (CB_FACILITY_BAOC.equals(facility)) {
             return ImsUtImplBase.CALL_BARRING_ALL_OUTGOING;
         } else if (CB_FACILITY_BAOIC.equals(facility)) {
@@ -1450,7 +1464,7 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void sendErrorResponse(Message onComplete) {
+    public void sendErrorResponse(Message onComplete) {
         logd("sendErrorResponse");
         if (onComplete != null) {
             AsyncResult.forMessage(onComplete, null,
@@ -1469,7 +1483,7 @@ public class ImsPhone extends ImsPhoneBase {
         }
     }
 
-    private CommandException getCommandException(int code, String errorString) {
+    protected CommandException getCommandException(int code, String errorString) {
         logd("getCommandException code= " + code + ", errorString= " + errorString);
         CommandException.Error error = CommandException.Error.GENERIC_FAILURE;
 
@@ -1509,7 +1523,7 @@ public class ImsPhone extends ImsPhoneBase {
         return new CommandException(error, errorString);
     }
 
-    private CommandException getCommandException(Throwable e) {
+    protected CommandException getCommandException(Throwable e) {
         CommandException ex = null;
 
         if (e instanceof ImsException) {
@@ -1708,7 +1722,7 @@ public class ImsPhone extends ImsPhoneBase {
         return mDefaultPhone.getPhoneId();
     }
 
-    private CallForwardInfo getCallForwardInfo(ImsCallForwardInfo info) {
+    protected CallForwardInfo getCallForwardInfo(ImsCallForwardInfo info) {
         CallForwardInfo cfInfo = new CallForwardInfo();
         cfInfo.status = info.getStatus();
         cfInfo.reason = getCFReasonFromCondition(info.getCondition());
@@ -1752,7 +1766,7 @@ public class ImsPhone extends ImsPhoneBase {
         return cfInfos;
     }
 
-    private int[] handleCbQueryResult(ImsSsInfo[] infos) {
+    protected int[] handleCbQueryResult(ImsSsInfo[] infos) {
         int[] cbInfos = new int[1];
         cbInfos[0] = SERVICE_CLASS_NONE;
 
@@ -1775,8 +1789,7 @@ public class ImsPhone extends ImsPhoneBase {
         return cwInfos;
     }
 
-    private void
-    sendResponse(Message onComplete, Object result, Throwable e) {
+    protected void sendResponse(Message onComplete, Object result, Throwable e) {
         if (onComplete != null) {
             CommandException ex = null;
             if (e != null) {
@@ -1818,7 +1831,7 @@ public class ImsPhone extends ImsPhoneBase {
         return b;
     }
 
-    private void sendResponseOrRetryOnCsfbSs(SS ss, int what, Throwable e, Object obj) {
+    protected void sendResponseOrRetryOnCsfbSs(SS ss, int what, Throwable e, Object obj) {
         if (!isCsRetryException(e)) {
             sendResponse(ss.mOnComplete, obj, e);
             return;
@@ -2429,7 +2442,7 @@ public class ImsPhone extends ImsPhoneBase {
      *     2) data is in service and it is not IWLAN (if in legacy mode).
      * @param ss non-null ServiceState
      */
-    private void updateRoamingState(ServiceState ss) {
+    protected void updateRoamingState(ServiceState ss) {
         if (ss == null) {
             loge("updateRoamingState: null ServiceState!");
             return;
@@ -2486,7 +2499,7 @@ public class ImsPhone extends ImsPhoneBase {
      * @return true if we are reporting not in service for CS domain over WWAN transport and WLAN
      * for PS domain over WWAN transport.
      */
-    private boolean isCsNotInServiceAndPsWwanReportingWlan(ServiceState ss) {
+    protected boolean isCsNotInServiceAndPsWwanReportingWlan(ServiceState ss) {
         // We can not get into this condition if we are in AP-Assisted mode.
         if (mDefaultPhone.getAccessNetworksManager() == null
                 || !mDefaultPhone.getAccessNetworksManager().isInLegacyMode()) {
@@ -2944,19 +2957,19 @@ public class ImsPhone extends ImsPhoneBase {
         return false;
     }
 
-    private void logi(String s) {
+    protected void logi(String s) {
         Rlog.i(LOG_TAG, "[" + mPhoneId + "] " + s);
     }
 
-    private void logv(String s) {
+    protected void logv(String s) {
         Rlog.v(LOG_TAG, "[" + mPhoneId + "] " + s);
     }
 
-    private void logd(String s) {
+    protected void logd(String s) {
         Rlog.d(LOG_TAG, "[" + mPhoneId + "] " + s);
     }
 
-    private void loge(String s) {
+    protected void loge(String s) {
         Rlog.e(LOG_TAG, "[" + mPhoneId + "] " + s);
     }
 }

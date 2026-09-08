@@ -1362,7 +1362,7 @@ public class DataRetryManager extends Handler {
     }
 
     /** Cancel all retries and throttling entries. */
-    private void onReset(@RetryResetReason int reason) {
+    public void onReset(@RetryResetReason int reason) {
         logl("Remove all retry and throttling entries, reason=" + resetReasonToString(reason));
         removeMessages(EVENT_DATA_SETUP_RETRY);
         removeMessages(EVENT_DATA_HANDOVER_RETRY);

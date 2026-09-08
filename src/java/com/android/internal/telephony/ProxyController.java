@@ -35,6 +35,7 @@ import android.util.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.data.PhoneSwitcher;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
@@ -45,10 +46,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ProxyController {
     static final String LOG_TAG = "ProxyController";
 
-    private static final int EVENT_NOTIFICATION_RC_CHANGED  = 1;
+    protected static final int EVENT_NOTIFICATION_RC_CHANGED  = 1;
     @VisibleForTesting
     static final int EVENT_START_RC_RESPONSE                = 2;
-    private static final int EVENT_APPLY_RC_RESPONSE        = 3;
+    protected static final int EVENT_APPLY_RC_RESPONSE        = 3;
     @VisibleForTesting
     public static final int EVENT_FINISH_RC_RESPONSE        = 4;
     @VisibleForTesting
@@ -56,33 +57,33 @@ public class ProxyController {
     @VisibleForTesting
     public static final int EVENT_MULTI_SIM_CONFIG_CHANGED  = 6;
 
-    private static final int SET_RC_STATUS_IDLE             = 0;
-    private static final int SET_RC_STATUS_STARTING         = 1;
-    private static final int SET_RC_STATUS_STARTED          = 2;
-    private static final int SET_RC_STATUS_APPLYING         = 3;
-    private static final int SET_RC_STATUS_SUCCESS          = 4;
-    private static final int SET_RC_STATUS_FAIL             = 5;
+    protected static final int SET_RC_STATUS_IDLE             = 0;
+    protected static final int SET_RC_STATUS_STARTING         = 1;
+    protected static final int SET_RC_STATUS_STARTED          = 2;
+    protected static final int SET_RC_STATUS_APPLYING         = 3;
+    protected static final int SET_RC_STATUS_SUCCESS          = 4;
+    protected static final int SET_RC_STATUS_FAIL             = 5;
 
     // The entire transaction must complete within this amount of time
     // or a FINISH will be issued to each Logical Modem with the old
     // Radio Access Family.
-    private static final int SET_RC_TIMEOUT_WAITING_MSEC    = (45 * 1000);
+    protected static final int SET_RC_TIMEOUT_WAITING_MSEC    = (45 * 1000);
 
     //***** Class Variables
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private static ProxyController sProxyController;
 
-    private Phone[] mPhones;
+    protected Phone[] mPhones;
 
-    private Context mContext;
+    protected Context mContext;
 
-    private PhoneSwitcher mPhoneSwitcher;
+    protected PhoneSwitcher mPhoneSwitcher;
 
     //UiccPhoneBookController to use proper IccPhoneBookInterfaceManagerProxy object
-    private UiccPhoneBookController mUiccPhoneBookController;
+    protected UiccPhoneBookController mUiccPhoneBookController;
 
     //PhoneSubInfoController to use proper PhoneSubInfoProxy object
-    private PhoneSubInfoController mPhoneSubInfoController;
+    protected PhoneSubInfoController mPhoneSubInfoController;
 
     //SmsController to use proper IccSmsInterfaceManager object
     private SmsController mSmsController;
@@ -91,36 +92,54 @@ public class ProxyController {
 
     // record each phone's set radio capability status
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private int[] mSetRadioAccessFamilyStatus;
-    private int mRadioAccessFamilyStatusCounter;
-    private boolean mTransactionFailed = false;
+    protected int[] mSetRadioAccessFamilyStatus;
+    protected int mRadioAccessFamilyStatusCounter;
+    protected boolean mTransactionFailed = false;
 
-    private String[] mCurrentLogicalModemIds;
-    private String[] mNewLogicalModemIds;
+    protected String[] mCurrentLogicalModemIds;
+    protected String[] mNewLogicalModemIds;
 
     // Allows the generation of unique Id's for radio capability request session  id
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private AtomicInteger mUniqueIdGenerator = new AtomicInteger(new Random().nextInt());
+    protected AtomicInteger mUniqueIdGenerator = new AtomicInteger(new Random().nextInt());
 
     // on-going radio capability request session id
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private int mRadioCapabilitySessionId;
+    protected int mRadioCapabilitySessionId;
 
     // Record new and old Radio Access Family (raf) configuration.
     // The old raf configuration is used to restore each logical modem raf when FINISH is
     // issued if any requests fail.
-    private int[] mNewRadioAccessFamily;
+    protected int[] mNewRadioAccessFamily;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private int[] mOldRadioAccessFamily;
+    protected int[] mOldRadioAccessFamily;
 
     @NonNull
     private final FeatureFlags mFlags;
 
     public static ProxyController getInstance(Context context, FeatureFlags flags) {
         if (sProxyController == null) {
-            sProxyController = new ProxyController(context, flags);
+            TelephonyComponentFactory factory = TelephonyComponentFactory.getInstance().inject(
+                    TelephonyComponentFactory.class.getName());
+            if (factory.getClass() != TelephonyComponentFactory.class) {
+                try {
+                    sProxyController = factory.makeProxyController(context);
+                    Rlog.i(LOG_TAG, "Using vendor ProxyController "
+                            + sProxyController.getClass().getName());
+                } catch (LinkageError | RuntimeException e) {
+                    Rlog.e(LOG_TAG, "Vendor ProxyController is incompatible; using AOSP", e);
+                }
+            }
+            if (sProxyController == null) {
+                sProxyController = new ProxyController(context, flags);
+            }
         }
         return sProxyController;
+    }
+
+    /** Android 13 vendor compatibility entry point. */
+    public static ProxyController getInstance(Context context) {
+        return getInstance(context, new FeatureFlagsImpl());
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
@@ -166,6 +185,11 @@ public class ProxyController {
         PhoneConfigurationManager.registerForMultiSimConfigChange(
                 mHandler, EVENT_MULTI_SIM_CONFIG_CHANGED, null);
         logd("Constructor - Exit");
+    }
+
+    /** Android 13 vendor compatibility constructor. */
+    public ProxyController(@NonNull Context context) {
+        this(context, new FeatureFlagsImpl());
     }
 
     /**
@@ -238,7 +262,7 @@ public class ProxyController {
         return mSmsController;
     }
 
-    private boolean doSetRadioCapabilities(RadioAccessFamily[] rafs) {
+    protected boolean doSetRadioCapabilities(RadioAccessFamily[] rafs) {
         // A new sessionId for this transaction
         mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
 
@@ -344,7 +368,7 @@ public class ProxyController {
      * Handle START response
      * @param msg obj field isa RadioCapability
      */
-    private void onStartRadioCapabilityResponse(Message msg) {
+    protected void onStartRadioCapabilityResponse(Message msg) {
         synchronized (mSetRadioAccessFamilyStatus) {
             AsyncResult ar = (AsyncResult)msg.obj;
             // Abort here only in Single SIM case, in Multi SIM cases
@@ -431,7 +455,7 @@ public class ProxyController {
      * Handle APPLY response
      * @param msg obj field isa RadioCapability
      */
-    private void onApplyRadioCapabilityResponse(Message msg) {
+    protected void onApplyRadioCapabilityResponse(Message msg) {
         RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
         if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
             logd("onApplyRadioCapabilityResponse: Ignore session=" + mRadioCapabilitySessionId
@@ -452,11 +476,19 @@ public class ProxyController {
         }
     }
 
+    /** Android 13 vendor extension hook. */
+    protected void onApplyExceptionHandler(Message msg) {
+    }
+
+    /** Android 13 vendor extension hook. */
+    protected void onApplyRadioCapabilityErrorHandler(Message msg) {
+    }
+
     /**
      * Handle the notification unsolicited response associated with the APPLY
      * @param msg obj field isa RadioCapability
      */
-    private void onNotificationRadioCapabilityChanged(Message msg) {
+    protected void onNotificationRadioCapabilityChanged(Message msg) {
         RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
         if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
             logd("onNotificationRadioCapabilityChanged: Ignore session=" + mRadioCapabilitySessionId
@@ -499,7 +531,7 @@ public class ProxyController {
      * Handle the FINISH Phase response
      * @param msg obj field isa RadioCapability
      */
-    void onFinishRadioCapabilityResponse(Message msg) {
+    protected void onFinishRadioCapabilityResponse(Message msg) {
         synchronized (mSetRadioAccessFamilyStatus) {
             AsyncResult ar = (AsyncResult)  msg.obj;
             RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
@@ -523,7 +555,7 @@ public class ProxyController {
         }
     }
 
-    private void onTimeoutRadioCapability(Message msg) {
+    protected void onTimeoutRadioCapability(Message msg) {
         if (msg.arg1 != mRadioCapabilitySessionId) {
            logd("RadioCapability timeout: Ignore msg.arg1=" + msg.arg1 +
                    "!= mRadioCapabilitySessionId=" + mRadioCapabilitySessionId);
@@ -550,7 +582,7 @@ public class ProxyController {
         }
     }
 
-    private void issueFinish(int sessionId) {
+    protected void issueFinish(int sessionId) {
         // Issue FINISH
         synchronized(mSetRadioAccessFamilyStatus) {
             for (int i = 0; i < mPhones.length; i++) {
@@ -578,7 +610,7 @@ public class ProxyController {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void completeRadioCapabilityTransaction() {
+    protected void completeRadioCapabilityTransaction() {
         // Create the intent to broadcast
         Intent intent;
         logd("onFinishRadioCapabilityResponse: success=" + !mTransactionFailed);
@@ -615,7 +647,7 @@ public class ProxyController {
     }
 
     // Clear this transaction
-    private void clearTransaction() {
+    protected void clearTransaction() {
         logd("clearTransaction");
         synchronized(mSetRadioAccessFamilyStatus) {
             for (int i = 0; i < mPhones.length; i++) {
@@ -645,12 +677,12 @@ public class ProxyController {
         }
     }
 
-    private void resetRadioAccessFamilyStatusCounter() {
+    protected void resetRadioAccessFamilyStatusCounter() {
         mRadioAccessFamilyStatusCounter = mPhones.length;
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void sendRadioCapabilityRequest(int phoneId, int sessionId, int rcPhase,
+    protected void sendRadioCapabilityRequest(int phoneId, int sessionId, int rcPhase,
             int radioFamily, String logicalModemId, int status, int eventId) {
         RadioCapability requestRC = new RadioCapability(
                 phoneId, sessionId, rcPhase, radioFamily, logicalModemId, status);
@@ -695,7 +727,7 @@ public class ProxyController {
 
     // This method checks current raf values stored in all phones and
     // whicheve phone raf matches with input raf, returns modemId from that phone
-    private String getLogicalModemIdFromRaf(int raf) {
+    protected String getLogicalModemIdFromRaf(int raf) {
         String modemUuid = null;
 
         for (int phoneId = 0; phoneId < mPhones.length; phoneId++) {
@@ -708,11 +740,11 @@ public class ProxyController {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void logd(String string) {
+    protected void logd(String string) {
         Rlog.d(LOG_TAG, string);
     }
 
-    private void loge(String string) {
+    protected void loge(String string) {
         Rlog.e(LOG_TAG, string);
     }
 }

@@ -48,6 +48,7 @@ import com.android.internal.telephony.data.DataNetworkController.HandoverRule;
 import com.android.internal.telephony.data.DataRetryManager.DataHandoverRetryRule;
 import com.android.internal.telephony.data.DataRetryManager.DataSetupRetryRule;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
@@ -258,8 +259,8 @@ public class DataConfigManager extends Handler {
      */
     private boolean mIsApnConfigAnomalyReportEnabled;
 
-    private @NonNull final Phone mPhone;
-    private @NonNull final String mLogTag;
+    protected @NonNull final Phone mPhone;
+    protected @NonNull final String mLogTag;
 
     @NonNull private final FeatureFlags mFeatureFlags;
     private @NonNull final CarrierConfigManager mCarrierConfigManager;
@@ -346,6 +347,11 @@ public class DataConfigManager extends Handler {
         updateCarrierConfig();
         // Must be called to set anomaly report threshold to non-null values
         updateDeviceConfig();
+    }
+
+    /** Android 13 vendor compatibility constructor. */
+    public DataConfigManager(@NonNull Phone phone, @NonNull Looper looper) {
+        this(phone, looper, new FeatureFlagsImpl());
     }
 
     /**
@@ -461,9 +467,14 @@ public class DataConfigManager extends Handler {
         updateTcpBuffers();
         updateHandoverRules();
         updateAutoDataSwitchConfig();
+        updateMtkExtendConfig(mCarrierConfig);
 
         log("Carrier config updated. Config is " + (isConfigCarrierSpecific() ? "" : "not ")
                 + "carrier specific.");
+    }
+
+    /** Vendor hook retained for the Android 13 MTK data config manager. */
+    protected void updateMtkExtendConfig(@NonNull PersistableBundle carrierConfig) {
     }
 
     /**

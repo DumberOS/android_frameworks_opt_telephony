@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.provider.Telephony;
 import android.telephony.Annotation;
 import android.telephony.Annotation.NetworkType;
@@ -50,6 +51,7 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.data.DataConfigManager.DataConfigManagerCallback;
 import com.android.internal.telephony.data.DataNetworkController.DataNetworkControllerCallback;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
@@ -76,28 +78,28 @@ public class DataProfileManager extends Handler {
     /** Event for SIM refresh. */
     private static final int EVENT_SIM_REFRESH = 3;
 
-    private final Phone mPhone;
-    private final String mLogTag;
+    protected final Phone mPhone;
+    protected final String mLogTag;
     private final LocalLog mLocalLog = new LocalLog(128);
 
     /** Data network controller. */
-    private final @NonNull DataNetworkController mDataNetworkController;
+    protected final @NonNull DataNetworkController mDataNetworkController;
 
     /** Data config manager. */
-    private final @NonNull DataConfigManager mDataConfigManager;
+    protected final @NonNull DataConfigManager mDataConfigManager;
 
     /** Cellular data service. */
-    private final @NonNull DataServiceManager mWwanDataServiceManager;
+    protected final @NonNull DataServiceManager mWwanDataServiceManager;
 
     /**
      * All data profiles for the current carrier. Note only data profiles loaded from the APN
      * database will be stored here. The on-demand data profiles (generated dynamically, for
      * example, enterprise data profiles with differentiator) are not stored here.
      */
-    private final @NonNull List<DataProfile> mAllDataProfiles = new ArrayList<>();
+    protected final @NonNull List<DataProfile> mAllDataProfiles = new ArrayList<>();
 
     /** The data profile used for initial attach. */
-    private @Nullable DataProfile mInitialAttachDataProfile = null;
+    protected @Nullable DataProfile mInitialAttachDataProfile = null;
 
     /** The preferred data profile used for internet. */
     private @Nullable DataProfile mPreferredDataProfile = null;
@@ -106,10 +108,10 @@ public class DataProfileManager extends Handler {
     private @Nullable DataProfile mLastInternetDataProfile = null;
 
     /** Preferred data profile set id. */
-    private int mPreferredDataProfileSetId = Telephony.Carriers.NO_APN_SET_ID;
+    protected int mPreferredDataProfileSetId = Telephony.Carriers.NO_APN_SET_ID;
 
     /** Data profile manager callbacks. */
-    private final @NonNull Set<DataProfileManagerCallback> mDataProfileManagerCallbacks =
+    protected final @NonNull Set<DataProfileManagerCallback> mDataProfileManagerCallbacks =
             new ArraySet<>();
 
     /** SIM state. */
@@ -164,10 +166,19 @@ public class DataProfileManager extends Handler {
         registerAllEvents();
     }
 
+    /** Android 13 vendor compatibility constructor. */
+    public DataProfileManager(@NonNull Phone phone,
+            @NonNull DataNetworkController dataNetworkController,
+            @NonNull DataServiceManager dataServiceManager, @NonNull Looper looper,
+            @NonNull DataProfileManagerCallback callback) {
+        this(phone, dataNetworkController, dataServiceManager, looper, new FeatureFlagsImpl(),
+                callback);
+    }
+
     /**
      * Register for all events that data network controller is interested.
      */
-    private void registerAllEvents() {
+    protected void registerAllEvents() {
         mDataNetworkController.registerDataNetworkControllerCallback(
                 new DataNetworkControllerCallback(this::post) {
                     @Override
@@ -204,12 +215,11 @@ public class DataProfileManager extends Handler {
         switch (msg.what) {
             case EVENT_SIM_REFRESH:
                 log("Update data profiles due to SIM refresh.");
-                updateDataProfiles(!mDataConfigManager.allowClearInitialAttachDataProfile()
-                        /*force update IA*/);
+                updateDataProfiles();
                 break;
             case EVENT_APN_DATABASE_CHANGED:
                 log("Update data profiles due to APN db updated.");
-                updateDataProfiles(false/*force update IA*/);
+                updateDataProfiles();
                 break;
             default:
                 loge("Unexpected event " + msg);
@@ -222,8 +232,7 @@ public class DataProfileManager extends Handler {
      */
     private void onCarrierConfigUpdated() {
         log("Update data profiles due to carrier config updated.");
-        updateDataProfiles(!mDataConfigManager.allowClearInitialAttachDataProfile()
-                /*force update IA*/);
+        updateDataProfiles();
     }
 
     /**
@@ -231,7 +240,7 @@ public class DataProfileManager extends Handler {
      * with the same.
      * @return data profile with enterprise ApnSetting if available, else null
      */
-    @Nullable private DataProfile getEnterpriseDataProfile() {
+    protected @Nullable DataProfile getEnterpriseDataProfile() {
         Cursor cursor = mPhone.getContext().getContentResolver().query(
                 Telephony.Carriers.DPC_URI, null, null, null, null);
         if (cursor == null) {
@@ -264,6 +273,10 @@ public class DataProfileManager extends Handler {
      * @param forceUpdateIa If {@code true}, we should always send initial attach data profile again
      *                     to modem.
      */
+    protected void updateDataProfiles() {
+        updateDataProfiles(false);
+    }
+
     private void updateDataProfiles(boolean forceUpdateIa) {
         List<DataProfile> profiles = new ArrayList<>();
         if (mDataConfigManager.isConfigCarrierSpecific()) {
@@ -387,7 +400,7 @@ public class DataProfileManager extends Handler {
     /**
      * @return The preferred data profile set id.
      */
-    private int getPreferredDataProfileSetId() {
+    protected int getPreferredDataProfileSetId() {
         // Query the preferred APN set id. The set id is automatically set when we set by
         // TelephonyProvider when setting preferred APN in setPreferredDataProfile().
         Cursor cursor = mPhone.getContext().getContentResolver()
@@ -465,7 +478,7 @@ public class DataProfileManager extends Handler {
                 + " internetNetworks=" + internetNetworks);
         // Save the preferred data profile into database.
         setPreferredDataProfile(defaultProfile);
-        updateDataProfiles(false/*force update IA*/);
+        updateDataProfiles();
     }
 
     /**
@@ -540,7 +553,7 @@ public class DataProfileManager extends Handler {
      *
      * @return {@code true} if preferred data profile changed.
      */
-    private boolean updatePreferredDataProfile() {
+    protected boolean updatePreferredDataProfile() {
         DataProfile preferredDataProfile;
         if (SubscriptionManager.isValidSubscriptionId(mPhone.getSubId())) {
             preferredDataProfile = getPreferredDataProfileFromDb();
@@ -591,6 +604,11 @@ public class DataProfileManager extends Handler {
      * @param forceUpdateIa If {@code true}, we should always send initial attach data profile again
      *                     to modem.
      */
+    /** Android 13 compatibility entry point used by vendor data profile managers. */
+    protected void updateInitialAttachDataProfileAtModem() {
+        updateInitialAttachDataProfileAtModem(false);
+    }
+
     private void updateInitialAttachDataProfileAtModem(boolean forceUpdateIa) {
         DataProfile initialAttachDataProfile = null;
 
@@ -622,10 +640,42 @@ public class DataProfileManager extends Handler {
     /**
      * Update the data profiles at modem.
      */
-    private void updateDataProfilesAtModem() {
+    protected void updateDataProfilesAtModem() {
+        normalizeMtkImsProfileIds();
         log("updateDataProfilesAtModem: set " + mAllDataProfiles.size() + " data profiles.");
         mWwanDataServiceManager.setDataProfile(mAllDataProfiles,
                 mPhone.getServiceState().getDataRoamingFromRegistration(), null);
+    }
+
+    /**
+     * Keep the persistent modem profile list consistent with the profile IDs used for MTK data
+     * setup. Stock mutates the shared profile before its post-setup refresh; Android 14 can replace
+     * that object with a fresh APN database instance and otherwise sends IMS as profile zero.
+     */
+    private void normalizeMtkImsProfileIds() {
+        if (!SystemProperties.getBoolean("sys.phh.stock_mtk_ims", false)) {
+            return;
+        }
+
+        for (DataProfile dataProfile : mAllDataProfiles) {
+            ApnSetting apnSetting = dataProfile.getApnSetting();
+            if (apnSetting == null) {
+                continue;
+            }
+
+            int profileId = 0;
+            if (apnSetting.canHandleType(ApnSetting.TYPE_EMERGENCY)) {
+                profileId = 1004;
+            } else if (apnSetting.canHandleType(ApnSetting.TYPE_IMS)) {
+                profileId = 2;
+            }
+
+            if (profileId != 0 && apnSetting.getProfileId() != profileId) {
+                log("normalizeMtkImsProfileIds: " + apnSetting.getApnName()
+                        + " profile " + apnSetting.getProfileId() + " -> " + profileId);
+                apnSetting.setProfileId(profileId);
+            }
+        }
     }
 
     /**
@@ -636,7 +686,7 @@ public class DataProfileManager extends Handler {
      * @param apnTypeBitmask APN type
      * @return The APN setting
      */
-    private @NonNull ApnSetting buildDefaultApnSetting(@NonNull String entry,
+    protected @NonNull ApnSetting buildDefaultApnSetting(@NonNull String entry,
             @NonNull String apn, @Annotation.ApnType int apnTypeBitmask) {
         return new ApnSetting.Builder()
                 .setEntryName(entry)
@@ -909,7 +959,7 @@ public class DataProfileManager extends Handler {
     /**
      * Dedupe the similar data profiles.
      */
-    private void dedupeDataProfiles(@NonNull List<DataProfile> dataProfiles) {
+    protected void dedupeDataProfiles(@NonNull List<DataProfile> dataProfiles) {
         int i = 0;
         while (i < dataProfiles.size() - 1) {
             DataProfile first = dataProfiles.get(i);
@@ -1194,7 +1244,7 @@ public class DataProfileManager extends Handler {
      * Log debug messages and also log into the local log.
      * @param s debug messages
      */
-    private void logl(@NonNull String s) {
+    protected void logl(@NonNull String s) {
         log(s);
         mLocalLog.log(s);
     }

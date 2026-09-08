@@ -103,11 +103,13 @@ import com.android.internal.telephony.cdma.CdmaMmiCode;
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
 import com.android.internal.telephony.data.AccessNetworksManager;
 import com.android.internal.telephony.data.DataNetworkController;
+import com.android.internal.telephony.dataconnection.DataEnabledSettings;
 import com.android.internal.telephony.data.LinkBandwidthEstimator;
 import com.android.internal.telephony.domainselection.DomainSelectionResolver;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.emergency.EmergencyStateTracker;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.internal.telephony.gsm.GsmMmiCode;
 import com.android.internal.telephony.gsm.SsData;
 import com.android.internal.telephony.gsm.SuppServiceNotification;
@@ -177,7 +179,7 @@ public class GsmCdmaPhone extends Phone {
     /** List of Registrants to receive Supplementary Service Notifications. */
     // Key used to read/write the current sub Id. Updated on SIM loaded.
     public static final String CURR_SUBID = "curr_subid";
-    private RegistrantList mSsnRegistrants = new RegistrantList();
+    protected RegistrantList mSsnRegistrants = new RegistrantList();
 
     //CDMA
     // Default Emergency Callback Mode exit timer
@@ -185,9 +187,9 @@ public class GsmCdmaPhone extends Phone {
     private static final String VM_NUMBER_CDMA = "vm_number_key_cdma";
     public static final int RESTART_ECM_TIMER = 0; // restart Ecm timer
     public static final int CANCEL_ECM_TIMER = 1; // cancel Ecm timer
-    private CdmaSubscriptionSourceManager mCdmaSSM;
+    protected CdmaSubscriptionSourceManager mCdmaSSM;
     public int mCdmaSubscriptionSource = CdmaSubscriptionSourceManager.SUBSCRIPTION_SOURCE_UNKNOWN;
-    private PowerManager.WakeLock mWakeLock;
+    protected PowerManager.WakeLock mWakeLock;
     // mEcmExitRespRegistrant is informed after the phone has been exited
     @UnsupportedAppUsage
     private Registrant mEcmExitRespRegistrant;
@@ -195,10 +197,10 @@ public class GsmCdmaPhone extends Phone {
     private String mMeid;
     // string to define how the carrier specifies its own ota sp number
     private String mCarrierOtaSpNumSchema;
-    private Boolean mUiccApplicationsEnabled = null;
+    protected Boolean mUiccApplicationsEnabled = null;
     // keeps track of when we have triggered an emergency call due to the ril.test.emergencynumber
     // param being set and we should generate a simulated exit from the modem upon exit of ECbM.
-    private boolean mIsTestingEmergencyCallbackMode = false;
+    protected boolean mIsTestingEmergencyCallbackMode = false;
     @VisibleForTesting
     public static int ENABLE_UICC_APPS_MAX_RETRIES = 3;
     private static final int REAPPLY_UICC_APPS_SETTING_RETRY_TIME_GAP_IN_MS = 5000;
@@ -232,8 +234,8 @@ public class GsmCdmaPhone extends Phone {
     public ServiceStateTracker mSST;
     public EmergencyNumberTracker mEmergencyNumberTracker;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private ArrayList <MmiCode> mPendingMMIs = new ArrayList<MmiCode>();
-    private IccPhoneBookInterfaceManager mIccPhoneBookIntManager;
+    protected ArrayList <MmiCode> mPendingMMIs = new ArrayList<MmiCode>();
+    protected IccPhoneBookInterfaceManager mIccPhoneBookIntManager;
 
     private int mPrecisePhoneType;
 
@@ -241,10 +243,10 @@ public class GsmCdmaPhone extends Phone {
     private final RegistrantList mEcmTimerResetRegistrants = new RegistrantList();
 
     private final RegistrantList mVolteSilentRedialRegistrants = new RegistrantList();
-    private DialArgs mDialArgs = null;
+    protected DialArgs mDialArgs = null;
     private final RegistrantList mEmergencyDomainSelectedRegistrants = new RegistrantList();
     private String mImei;
-    private String mImeiSv;
+    protected String mImeiSv;
     private String mVmNumber;
     private int mImeiType = IMEI_TYPE_UNKNOWN;
     private int mSimState = TelephonyManager.SIM_STATE_UNKNOWN;
@@ -286,9 +288,9 @@ public class GsmCdmaPhone extends Phone {
     private IccSmsInterfaceManager mIccSmsInterfaceManager;
 
     private boolean mResetModemOnRadioTechnologyChange = false;
-    private boolean mSsOverCdmaSupported = false;
+    protected boolean mSsOverCdmaSupported = false;
 
-    private int mRilVersion;
+    protected int mRilVersion;
     private boolean mBroadcastEmergencyCallStateChanges = false;
     private @ServiceState.RegState int mTelecomVoiceServiceStateOverride =
             ServiceState.STATE_OUT_OF_SERVICE;
@@ -325,6 +327,21 @@ public class GsmCdmaPhone extends Phone {
     private Boolean mModemN1Mode = null;
 
     // Constructors
+
+    /** Android 13 vendor compatibility constructor. */
+    public GsmCdmaPhone(Context context, CommandsInterface ci, PhoneNotifier notifier, int phoneId,
+            int precisePhoneType, TelephonyComponentFactory telephonyComponentFactory) {
+        this(context, ci, notifier, phoneId, precisePhoneType, telephonyComponentFactory,
+                new FeatureFlagsImpl());
+    }
+
+    /** Android 13 vendor compatibility constructor. */
+    public GsmCdmaPhone(Context context, CommandsInterface ci, PhoneNotifier notifier,
+            boolean unitTestMode, int phoneId, int precisePhoneType,
+            TelephonyComponentFactory telephonyComponentFactory) {
+        this(context, ci, notifier, unitTestMode, phoneId, precisePhoneType,
+                telephonyComponentFactory, new FeatureFlagsImpl());
+    }
 
     public GsmCdmaPhone(Context context, CommandsInterface ci, PhoneNotifier notifier, int phoneId,
                         int precisePhoneType, TelephonyComponentFactory telephonyComponentFactory,
@@ -388,6 +405,7 @@ public class GsmCdmaPhone extends Phone {
         mDataNetworkController = mTelephonyComponentFactory.inject(
                 DataNetworkController.class.getName())
                 .makeDataNetworkController(this, getLooper(), featureFlags);
+        mDataEnabledSettings = new DataEnabledSettings(this);
 
         mCarrierResolver = mTelephonyComponentFactory.inject(CarrierResolver.class.getName())
                 .makeCarrierResolver(this);
@@ -475,7 +493,7 @@ public class GsmCdmaPhone extends Phone {
             PackageManager.FEATURE_TELEPHONY_CALLING);
     }
 
-    private void initOnce(CommandsInterface ci) {
+    protected void initOnce(CommandsInterface ci) {
         if (ci instanceof SimulatedRadioControl) {
             mSimulatedRadioControl = (SimulatedRadioControl) ci;
         }
@@ -579,7 +597,7 @@ public class GsmCdmaPhone extends Phone {
         initializeCarrierApps();
     }
 
-    private void initRatSpecific(int precisePhoneType) {
+    protected void initRatSpecific(int precisePhoneType) {
         mPendingMMIs.clear();
         mIccPhoneBookIntManager.updateIccRecords(null);
 
@@ -689,7 +707,7 @@ public class GsmCdmaPhone extends Phone {
         return mPrecisePhoneType == PhoneConstants.PHONE_TYPE_CDMA_LTE;
     }
 
-    private void switchPhoneType(int precisePhoneType) {
+    protected void switchPhoneType(int precisePhoneType) {
         removeCallbacks(mExitEcmRunnable);
 
         initRatSpecific(precisePhoneType);
@@ -2370,7 +2388,7 @@ public class GsmCdmaPhone extends Phone {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isValidCommandInterfaceCFReason (int commandInterfaceCFReason) {
+    protected boolean isValidCommandInterfaceCFReason (int commandInterfaceCFReason) {
         switch (commandInterfaceCFReason) {
             case CF_REASON_UNCONDITIONAL:
             case CF_REASON_BUSY:
@@ -2394,7 +2412,7 @@ public class GsmCdmaPhone extends Phone {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isValidCommandInterfaceCFAction (int commandInterfaceCFAction) {
+    protected boolean isValidCommandInterfaceCFAction (int commandInterfaceCFAction) {
         switch (commandInterfaceCFAction) {
             case CF_ACTION_DISABLE:
             case CF_ACTION_ENABLE:
@@ -2407,7 +2425,7 @@ public class GsmCdmaPhone extends Phone {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isCfEnable(int action) {
+    protected boolean isCfEnable(int action) {
         return (action == CF_ACTION_ENABLE) || (action == CF_ACTION_REGISTRATION);
     }
 
@@ -2417,7 +2435,7 @@ public class GsmCdmaPhone extends Phone {
             && mImsPhone.isUtEnabled();
     }
 
-    private boolean isCsRetry(Message onComplete) {
+    protected boolean isCsRetry(Message onComplete) {
         if (onComplete != null) {
             return onComplete.getData().getBoolean(CS_FALLBACK_SS, false);
         }
@@ -3845,6 +3863,10 @@ public class GsmCdmaPhone extends Phone {
     // todo: check if ICC availability needs to be handled here. mSimRecords should not be needed
     // now because APIs can be called directly on UiccProfile, and that should handle the requests
     // correctly based on supported apps, voice RAT, etc.
+    protected PersistableBundle onGetCarrierConfig(CarrierConfigManager carrierConfigManager) {
+        return carrierConfigManager.getConfigForSubId(getSubId());
+    }
+
     @Override
     protected void onUpdateIccAvailability() {
         if (mUiccController == null ) {
@@ -3930,7 +3952,7 @@ public class GsmCdmaPhone extends Phone {
         reapplyUiccAppsEnablementIfNeeded(ENABLE_UICC_APPS_MAX_RETRIES);
     }
 
-    private void processIccRecordEvents(int eventCode) {
+    protected void processIccRecordEvents(int eventCode) {
         switch (eventCode) {
             case IccRecords.EVENT_CFI:
                 logi("processIccRecordEvents: EVENT_CFI");
@@ -4002,7 +4024,7 @@ public class GsmCdmaPhone extends Phone {
         }
     }
 
-    private void handleCfuQueryResult(CallForwardInfo[] infos) {
+    protected void handleCfuQueryResult(CallForwardInfo[] infos) {
         if (infos == null || infos.length == 0) {
             // Assume the default is not active
             // Set unconditional CFF in SIM to false
@@ -4144,7 +4166,7 @@ public class GsmCdmaPhone extends Phone {
         return isProhibited;
     }
 
-    private void registerForIccRecordEvents() {
+    protected void registerForIccRecordEvents() {
         IccRecords r = mIccRecords.get();
         if (r == null) {
             return;
@@ -4163,7 +4185,7 @@ public class GsmCdmaPhone extends Phone {
         }
     }
 
-    private void unregisterForIccRecordEvents() {
+    protected void unregisterForIccRecordEvents() {
         IccRecords r = mIccRecords.get();
         if (r == null) {
             return;
@@ -4643,7 +4665,7 @@ public class GsmCdmaPhone extends Phone {
         mContext.sendStickyBroadcastAsUser(intent, UserHandle.ALL);
     }
 
-    private void switchVoiceRadioTech(int newVoiceRadioTech) {
+    protected void switchVoiceRadioTech(int newVoiceRadioTech) {
 
         String outgoingPhoneName = getPhoneName();
 
@@ -4714,7 +4736,7 @@ public class GsmCdmaPhone extends Phone {
         }
     }
 
-    private UiccProfile getUiccProfile() {
+    protected UiccProfile getUiccProfile() {
         return UiccController.getInstance().getUiccProfileForPhone(mPhoneId);
     }
 
@@ -5030,7 +5052,7 @@ public class GsmCdmaPhone extends Phone {
         }
     }
 
-    private CallForwardInfo[] makeEmptyCallForward() {
+    protected CallForwardInfo[] makeEmptyCallForward() {
         CallForwardInfo infos[] = new CallForwardInfo[1];
 
         infos[0] = new CallForwardInfo();
@@ -5044,7 +5066,7 @@ public class GsmCdmaPhone extends Phone {
         return infos;
     }
 
-    private PhoneAccountHandle subscriptionIdToPhoneAccountHandle(final int subId) {
+    protected PhoneAccountHandle subscriptionIdToPhoneAccountHandle(final int subId) {
         final TelecomManager telecomManager = mContext.getSystemService(TelecomManager.class);
         final TelephonyManager telephonyManager = TelephonyManager.from(mContext);
         final Iterator<PhoneAccountHandle> phoneAccounts =
@@ -5062,7 +5084,7 @@ public class GsmCdmaPhone extends Phone {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void logd(String s) {
+    protected void logd(String s) {
         Rlog.d(LOG_TAG, "[" + mPhoneId + "] " + s);
     }
 
@@ -5071,11 +5093,11 @@ public class GsmCdmaPhone extends Phone {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void loge(String s) {
+    protected void loge(String s) {
         Rlog.e(LOG_TAG, "[" + mPhoneId + "] " + s);
     }
 
-    private static String pii(String s) {
+    protected static String pii(String s) {
         return Rlog.pii(LOG_TAG, s);
     }
 
@@ -5165,7 +5187,7 @@ public class GsmCdmaPhone extends Phone {
         updateUiTtyMode(ttyMode);
     }
 
-    private void reapplyUiccAppsEnablementIfNeeded(int retries) {
+    protected void reapplyUiccAppsEnablementIfNeeded(int retries) {
         UiccSlot slot = mUiccController.getUiccSlotForPhone(mPhoneId);
 
         // If no card is present or we don't have mUiccApplicationsEnabled yet, do nothing.

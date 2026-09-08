@@ -38,6 +38,7 @@ import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.telecom.TelecomManager;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.AccessNetworkConstants.AccessNetworkType;
@@ -107,6 +108,7 @@ import com.android.internal.telephony.data.DataSettingsManager.DataSettingsManag
 import com.android.internal.telephony.data.DataStallRecoveryManager.DataStallRecoveryManagerCallback;
 import com.android.internal.telephony.data.LinkBandwidthEstimator.LinkBandwidthEstimatorCallback;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.internal.telephony.ims.ImsResolver;
 import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
@@ -255,20 +257,20 @@ public class DataNetworkController extends Handler {
      */
     private long mBootStrapSimTotalDataUsageBytes = 0L;
 
-    private final Phone mPhone;
-    private final String mLogTag;
+    protected final Phone mPhone;
+    protected final String mLogTag;
     private final LocalLog mLocalLog = new LocalLog(128);
 
-    private final @NonNull DataConfigManager mDataConfigManager;
-    private final @NonNull DataSettingsManager mDataSettingsManager;
-    private final @NonNull DataProfileManager mDataProfileManager;
+    protected final @NonNull DataConfigManager mDataConfigManager;
+    protected final @NonNull DataSettingsManager mDataSettingsManager;
+    protected final @NonNull DataProfileManager mDataProfileManager;
     private final @NonNull DataStallRecoveryManager mDataStallRecoveryManager;
     private final @NonNull AccessNetworksManager mAccessNetworksManager;
-    private final @NonNull DataRetryManager mDataRetryManager;
+    protected final @NonNull DataRetryManager mDataRetryManager;
     private final @NonNull ImsManager mImsManager;
     private final @NonNull TelecomManager mTelecomManager;
     private final @NonNull NetworkPolicyManager mNetworkPolicyManager;
-    private final @NonNull SparseArray<DataServiceManager> mDataServiceManagers =
+    protected final @NonNull SparseArray<DataServiceManager> mDataServiceManagers =
             new SparseArray<>();
 
     /** The subscription index associated with this data network controller. */
@@ -299,13 +301,13 @@ public class DataNetworkController extends Handler {
     /**
      * The list of all network requests.
      */
-    private final @NonNull NetworkRequestList mAllNetworkRequestList = new NetworkRequestList();
+    protected final @NonNull NetworkRequestList mAllNetworkRequestList = new NetworkRequestList();
 
     /**
      * The current data network list, including the ones that are connected, connecting, or
      * disconnecting.
      */
-    private final @NonNull List<DataNetwork> mDataNetworkList = new ArrayList<>();
+    protected final @NonNull List<DataNetwork> mDataNetworkList = new ArrayList<>();
 
     /** {@code true} indicating at least one data network exists. */
     private boolean mAnyDataNetworkExisting;
@@ -333,7 +335,7 @@ public class DataNetworkController extends Handler {
     private @LinkStatus int mInternetLinkStatus = DataCallResponse.LINK_STATUS_UNKNOWN;
 
     /** Data network controller callbacks. */
-    private final @NonNull Set<DataNetworkControllerCallback> mDataNetworkControllerCallbacks =
+    protected final @NonNull Set<DataNetworkControllerCallback> mDataNetworkControllerCallbacks =
             new ArraySet<>();
 
     /** Indicates if packet switch data is restricted by the cellular network. */
@@ -849,7 +851,9 @@ public class DataNetworkController extends Handler {
             mDataServiceManagers.put(transport, new DataServiceManager(mPhone, looper, transport));
         }
 
-        mDataConfigManager = new DataConfigManager(mPhone, looper, featureFlags);
+        mDataConfigManager = TelephonyComponentFactory.getInstance()
+                .inject(TelephonyComponentFactory.class.getName())
+                .makeDataConfigManager(mPhone, looper);
 
         // ========== Anomaly counters ==========
         mImsThrottleCounter = new SlidingWindowEventCounter(
@@ -971,10 +975,15 @@ public class DataNetworkController extends Handler {
         sendEmptyMessage(EVENT_REGISTER_ALL_EVENTS);
     }
 
+    /** Android 13 vendor compatibility constructor. */
+    public DataNetworkController(@NonNull Phone phone, @NonNull Looper looper) {
+        this(phone, looper, new FeatureFlagsImpl());
+    }
+
     /**
      * Called when needed to register for all events that data network controller is interested.
      */
-    private void onRegisterAllEvents() {
+    protected void onRegisterAllEvents() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
         filter.addAction(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
@@ -1509,6 +1518,18 @@ public class DataNetworkController extends Handler {
     }
 
     /**
+     * @return {@code true} if cellular radio power-off is no longer blocked by a data network.
+     */
+    public boolean isReadyForRadioPowerOff() {
+        if (!isMtkImsDataSupport()) {
+            return areAllDataDisconnected();
+        }
+        return mDataNetworkList.stream().allMatch(dataNetwork ->
+                dataNetwork.getNetworkCapabilities().hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_IMS));
+    }
+
+    /**
      * @return List of the reasons why internet data is not allowed. An empty list if internet
      * is allowed.
      */
@@ -1733,6 +1754,8 @@ public class DataNetworkController extends Handler {
         } else if (mDataRetryManager.isDataProfileThrottled(dataProfile, transport)) {
             evaluation.addDataDisallowedReason(DataDisallowedReason.DATA_THROTTLED);
         }
+
+        mtkEvaluateNetworkRequest(evaluation, networkRequest, reason, transport);
 
         if (!evaluation.containsDisallowedReasons()) {
             if (transport == AccessNetworkConstants.TRANSPORT_TYPE_WWAN
@@ -2038,6 +2061,8 @@ public class DataNetworkController extends Handler {
             evaluation.addDataDisallowedReason(DataDisallowedReason.DATA_PROFILE_NOT_PREFERRED);
         }
 
+        mtkEvaluateDataNetwork(evaluation, dataNetwork, reason, dataNetwork.getTransport());
+
         // Check whether if there are any reason we should tear down the network.
         if (!evaluation.containsDisallowedReasons()) {
             // The data is allowed in the current condition.
@@ -2081,6 +2106,18 @@ public class DataNetworkController extends Handler {
 
         log("Evaluated " + dataNetwork + ", " + evaluation);
         return evaluation;
+    }
+
+    /** Vendor hook retained for the Android 13 MTK data controller. */
+    protected void mtkEvaluateNetworkRequest(@NonNull DataEvaluation evaluation,
+            @NonNull TelephonyNetworkRequest networkRequest,
+            @NonNull DataEvaluationReason reason, @TransportType int transport) {
+    }
+
+    /** Vendor hook retained for the Android 13 MTK data controller. */
+    protected void mtkEvaluateDataNetwork(@NonNull DataEvaluation evaluation,
+            @NonNull DataNetwork dataNetwork, @NonNull DataEvaluationReason reason,
+            @TransportType int transport) {
     }
 
     /**
@@ -2140,7 +2177,9 @@ public class DataNetworkController extends Handler {
                     NetworkRegistrationInfo.DOMAIN_PS, targetTransport);
             if (nri != null) {
                 // Check if OOS on target transport.
-                if (!nri.isInService()) {
+                if (!nri.isInService() && !(isMtkImsDataSupport()
+                        && dataNetwork.getNetworkCapabilities().hasCapability(
+                                NetworkCapabilities.NET_CAPABILITY_IMS))) {
                     dataEvaluation.addDataDisallowedReason(DataDisallowedReason.NOT_IN_SERVICE);
                 }
 
@@ -2240,6 +2279,17 @@ public class DataNetworkController extends Handler {
         // Allow handover by default if no rule is found/not enabled by config.
         dataEvaluation.addDataAllowedReason(DataAllowedReason.NORMAL);
         return dataEvaluation;
+    }
+
+    /**
+     * MediaTek reports IWLAN in service only after the IMS handover starts. Allowing the IMS
+     * handover through the pre-attach state matches the stock MTK telephony controller.
+     */
+    private boolean isMtkImsDataSupport() {
+        return SystemProperties.getBoolean("sys.phh.stock_mtk_ims", false)
+                && ("0".equals(SystemProperties.get(
+                        "ro.vendor.mtk_telephony_add_on_policy", "0"))
+                || "1".equals(SystemProperties.get("ro.mtk.ims.data.feature_support")));
     }
 
     /**
@@ -2366,7 +2416,7 @@ public class DataNetworkController extends Handler {
         sendMessage(obtainMessage(EVENT_REMOVE_NETWORK_REQUEST, networkRequest));
     }
 
-    private void onRemoveNetworkRequest(@NonNull TelephonyNetworkRequest request) {
+    protected void onRemoveNetworkRequest(@NonNull TelephonyNetworkRequest request) {
         // The request generated from telephony network factory does not contain the information
         // the original request has, for example, attached data network. We need to find the
         // original one.
@@ -2718,8 +2768,19 @@ public class DataNetworkController extends Handler {
                 + AccessNetworkConstants.transportTypeToString(transport) + " with " + dataProfile
                 + ", and attaching " + networkRequestList.size() + " network requests to it.");
 
-        mDataNetworkList.add(new DataNetwork(mPhone, mFeatureFlags, getLooper(),
-                mDataServiceManagers, dataProfile, networkRequestList, transport, allowedReason,
+        ApnSetting apnSetting = dataProfile.getApnSetting();
+        if (isMtkImsDataSupport() && apnSetting != null) {
+            apnSetting.setProfileId(
+                    getProfileID(networkRequestList.get(0).getApnTypeNetworkCapability()));
+            if (dataSetupRetryEntry == null) {
+                resetMdDataRetryCount(apnSetting);
+            }
+        }
+
+        mDataNetworkList.add(TelephonyComponentFactory.getInstance()
+                .inject(TelephonyComponentFactory.class.getName())
+                .makeDataNetwork(mPhone, getLooper(), mDataServiceManagers, dataProfile,
+                networkRequestList, transport, allowedReason,
                 new DataNetworkCallback(this::post) {
                     @Override
                     public void onSetupDataFailed(@NonNull DataNetwork dataNetwork,
@@ -3172,6 +3233,13 @@ public class DataNetworkController extends Handler {
                     () -> callback.onAnyDataNetworkExistingChanged(mAnyDataNetworkExisting)));
         }
 
+        if (isMtkImsDataSupport() && mPendingTearDownAllNetworks
+                && mDataNetworkList.size() == 1
+                && mDataNetworkList.get(0).getNetworkCapabilities().hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_IMS)) {
+            notifyAllDataDisconnectedExceptMtkIms();
+        }
+
         // Immediately reestablish on target transport if network was torn down due to policy
         long delayMillis = tearDownReason == DataNetwork.TEAR_DOWN_REASON_HANDOVER_NOT_ALLOWED
                 ? 0 : mDataConfigManager.getRetrySetupAfterDisconnectMillis();
@@ -3386,6 +3454,11 @@ public class DataNetworkController extends Handler {
                 + AccessNetworkConstants.transportTypeToString(preferredTransport));
         for (DataNetwork dataNetwork : mDataNetworkList) {
             if (dataNetwork.getApnTypeNetworkCapability() == capability) {
+                if (shouldIgnoreHandover(dataNetwork)) {
+                    log("onEvaluatePreferredTransport: ignored handover for " + dataNetwork);
+                    continue;
+                }
+
                 // Check if the data network's current transport is different than from the
                 // preferred transport. If it's different, then handover is needed.
                 if (dataNetwork.getTransport() == preferredTransport) {
@@ -3411,6 +3484,15 @@ public class DataNetworkController extends Handler {
                 }
             }
         }
+    }
+
+    /** Vendor hook retained for the Android 13 MTK data controller. */
+    protected boolean shouldIgnoreHandover(@NonNull DataNetwork dataNetwork) {
+        return false;
+    }
+
+    /** Vendor hook retained for the Android 13 MTK data controller. */
+    protected void resetMdDataRetryCount(@NonNull ApnSetting apnSetting) {
     }
 
     /**
@@ -3803,6 +3885,36 @@ public class DataNetworkController extends Handler {
         return mDataRetryManager;
     }
 
+    /** Legacy MTK profile IDs corresponding to the Android 13 APN type ordinal. */
+    protected int getProfileID(int apnType) {
+        switch (apnType) {
+            case 0:
+                return 1001;
+            case 1:
+                return 1002;
+            case 2:
+                return 1;
+            case 3:
+                return 3;
+            case 4:
+                return 2;
+            case 5:
+                return 4;
+            case 9:
+                return 1005;
+            case 10:
+                return 1004;
+            case 23:
+                return 1009;
+            case 30:
+                return 1008;
+            case 31:
+                return 1007;
+            default:
+                return 0;
+        }
+    }
+
     /**
      * @return The list of SubscriptionPlans
      */
@@ -3833,7 +3945,7 @@ public class DataNetworkController extends Handler {
      * @param transport The transport.
      * @return The current network type.
      */
-    private @NetworkType int getDataNetworkType(@TransportType int transport) {
+    protected @NetworkType int getDataNetworkType(@TransportType int transport) {
         NetworkRegistrationInfo nri = mServiceState.getNetworkRegistrationInfo(
                 NetworkRegistrationInfo.DOMAIN_PS, transport);
         if (nri != null) {
@@ -3849,7 +3961,7 @@ public class DataNetworkController extends Handler {
      * @param transport The transport.
      * @return The registration state.
      */
-    private @RegistrationState int getDataRegistrationState(@NonNull ServiceState ss,
+    protected @RegistrationState int getDataRegistrationState(@NonNull ServiceState ss,
             @TransportType int transport) {
         NetworkRegistrationInfo nri = ss.getNetworkRegistrationInfo(
                 NetworkRegistrationInfo.DOMAIN_PS, transport);
@@ -3909,10 +4021,27 @@ public class DataNetworkController extends Handler {
 
         mPendingTearDownAllNetworks = true;
         for (DataNetwork dataNetwork : mDataNetworkList) {
-            if (!dataNetwork.isDisconnecting()) {
+            if (isMtkImsDataSupport()
+                    && reason == DataNetwork.TEAR_DOWN_REASON_AIRPLANE_MODE_ON
+                    && dataNetwork.getNetworkCapabilities().hasCapability(
+                            NetworkCapabilities.NET_CAPABILITY_IMS)) {
+                // Stock MTK leaves IMS available for IWLAN while cellular RF powers down.
+                log("onTearDownAllDataNetworks: keep IMS for airplane-mode IWLAN");
+                if (mDataNetworkList.size() == 1) {
+                    notifyAllDataDisconnectedExceptMtkIms();
+                }
+            } else if (!dataNetwork.isDisconnecting()) {
                 tearDownGracefully(dataNetwork, reason);
             }
         }
+    }
+
+    /** Let radio power-off proceed while the MTK IMS network remains available to IWLAN. */
+    private void notifyAllDataDisconnectedExceptMtkIms() {
+        log("All cellular data disconnected; keeping MTK IMS for IWLAN.");
+        mPendingTearDownAllNetworks = false;
+        mDataNetworkControllerCallbacks.forEach(callback -> callback.invokeFromExecutor(
+                () -> callback.onAnyDataNetworkExistingChanged(false)));
     }
 
     /**

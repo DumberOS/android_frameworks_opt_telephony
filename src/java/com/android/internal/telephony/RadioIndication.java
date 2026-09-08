@@ -124,9 +124,9 @@ import java.util.List;
 import java.util.UUID;
 
 public class RadioIndication extends IRadioIndication.Stub {
-    RIL mRil;
+    public RIL mRil;
 
-    RadioIndication(RIL ril) {
+    public RadioIndication(RIL ril) {
         mRil = ril;
     }
 

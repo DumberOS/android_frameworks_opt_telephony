@@ -36,7 +36,7 @@ import java.util.HashMap;
 /**
  * {@hide}
  */
-class VoiceMailConstants {
+public class VoiceMailConstants {
     private HashMap<String, String[]> CarrierVmMap;
 
 
@@ -54,7 +54,7 @@ class VoiceMailConstants {
         loadVoiceMail();
     }
 
-    boolean containsCarrier(String carrier) {
+    public boolean containsCarrier(String carrier) {
         return CarrierVmMap.containsKey(carrier);
     }
 

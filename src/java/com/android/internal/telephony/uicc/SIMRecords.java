@@ -63,33 +63,33 @@ public class SIMRecords extends IccRecords {
     // ***** Instance Variables
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    VoiceMailConstants mVmConfig;
+    protected VoiceMailConstants mVmConfig;
 
     // ***** Cached SIM State; cleared on channel close
 
-    private int mCallForwardingStatus;
+    protected int mCallForwardingStatus;
 
     /**
      * States only used by getSpnFsm FSM
      */
-    private GetSpnFsmState mSpnState;
+    protected GetSpnFsmState mSpnState;
 
     /** CPHS service information (See CPHS 4.2 B.3.1.1)
      *  It will be set in onSimReady if reading GET_CPHS_INFO successfully
      *  mCphsInfo[0] is CPHS Phase
      *  mCphsInfo[1] and mCphsInfo[2] is CPHS Service Table
      */
-    private byte[] mCphsInfo = null;
-    boolean mCspPlmnEnabled = true;
+    protected byte[] mCphsInfo = null;
+    protected boolean mCspPlmnEnabled = true;
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     byte[] mEfMWIS = null;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     byte[] mEfCPHS_MWI =null;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    byte[] mEfCff = null;
+    protected byte[] mEfCff = null;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    byte[] mEfCfis = null;
+    protected byte[] mEfCfis = null;
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     byte[] mEfLi = null;
@@ -97,7 +97,7 @@ public class SIMRecords extends IccRecords {
     byte[] mEfPl = null;
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    UsimServiceTable mUsimServiceTable;
+    protected UsimServiceTable mUsimServiceTable;
 
     @Override
     public String toString() {
@@ -214,6 +214,11 @@ public class SIMRecords extends IccRecords {
         if (DBG) log("SIMRecords X ctor this=" + this);
     }
 
+    /** Vendor hook used to suppress GSM SIM properties for CDMA 3G cards. */
+    protected boolean checkCdma3gCard() {
+        return true;
+    }
+
     @Override
     public void dispose() {
         if (DBG) log("Disposing SIMRecords this=" + this);
@@ -293,7 +298,7 @@ public class SIMRecords extends IccRecords {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private int getExtFromEf(int ef) {
+    protected int getExtFromEf(int ef) {
         int ext;
         switch (ef) {
             case EF_FDN: return EF_EXT2;
@@ -481,7 +486,7 @@ public class SIMRecords extends IccRecords {
     }
 
     // Validate data is not null and not empty.
-    private boolean validEfCfis(byte[] data) {
+    protected boolean validEfCfis(byte[] data) {
         if (data != null) {
             if (data[0] < 1 || data[0] > 4) {
                 // The MSP (Multiple Subscriber Profile) byte should be between
@@ -657,7 +662,7 @@ public class SIMRecords extends IccRecords {
 
         boolean isRecordLoadResponse = false;
 
-        if (mDestroyed.get()) {
+        if (mDestroyed.get() && shallIgnoreMessage(msg)) {
             loge("Received message " + msg + "[" + msg.what + "] " +
                     " while being destroyed. Ignoring.");
             return;
@@ -1513,7 +1518,7 @@ public class SIMRecords extends IccRecords {
         }
     }
 
-    private void setVoiceCallForwardingFlagFromSimRecords() {
+    protected void setVoiceCallForwardingFlagFromSimRecords() {
         if (validEfCfis(mEfCfis)) {
             // Refer TS 51.011 Section 10.3.46 for the content description
             mCallForwardingStatus = (mEfCfis[1] & 0x01);
@@ -1562,7 +1567,7 @@ public class SIMRecords extends IccRecords {
         // Some fields require more than one SIM record to set
 
         String operator = getOperatorNumeric();
-        if (!TextUtils.isEmpty(operator)) {
+        if (!TextUtils.isEmpty(operator) && checkCdma3gCard()) {
             log("onAllRecordsLoaded set 'gsm.sim.operator.numeric' to operator='" +
                     operator + "'");
             mTelephonyManager.setSimOperatorNumericForPhone(
@@ -1573,7 +1578,7 @@ public class SIMRecords extends IccRecords {
 
         String imsi = getIMSI();
 
-        if (!TextUtils.isEmpty(imsi) && imsi.length() >= 3) {
+        if (!TextUtils.isEmpty(imsi) && imsi.length() >= 3 && checkCdma3gCard()) {
             log("onAllRecordsLoaded set mcc imsi" + (VDBG ? ("=" + imsi) : ""));
             mTelephonyManager.setSimCountryIsoForPhone(
                     mParentApp.getPhoneId(), MccTable.countryCodeForMcc(imsi.substring(0, 3)));
@@ -1588,7 +1593,7 @@ public class SIMRecords extends IccRecords {
 
     //***** Private methods
 
-    private void setVoiceMailByCountry (String spn) {
+    protected void setVoiceMailByCountry (String spn) {
         if (mDestroyed.get()) {
             return;
         }
@@ -1651,7 +1656,7 @@ public class SIMRecords extends IccRecords {
         }
     }
 
-    private void loadCallForwardingRecords() {
+    protected void loadCallForwardingRecords() {
         mRecordsRequested = true;
         mFh.loadEFLinearFixed(EF_CFIS, 1, obtainMessage(EVENT_GET_CFIS_DONE));
         mRecordsToLoad++;
@@ -1786,7 +1791,7 @@ public class SIMRecords extends IccRecords {
      */
     @UnsupportedAppUsage(implicitMember =
             "values()[Lcom/android/internal/telephony/uicc/SIMRecords$GetSpnFsmState;")
-    private enum GetSpnFsmState {
+    protected enum GetSpnFsmState {
         IDLE,               // No initialized
         @UnsupportedAppUsage
         INIT,               // Start FSM
@@ -2092,7 +2097,7 @@ public class SIMRecords extends IccRecords {
      * check to see if Mailbox Number is allocated and activated in CPHS SST
      */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isCphsMailboxEnabled() {
+    protected boolean isCphsMailboxEnabled() {
         if (mCphsInfo == null)  return false;
         return ((mCphsInfo[1] & CPHS_SST_MBN_MASK) == CPHS_SST_MBN_ENABLED );
     }
@@ -2132,6 +2137,11 @@ public class SIMRecords extends IccRecords {
         } else {
             Rlog.v(LOG_TAG, "[SIMRecords] " + s);
         }
+    }
+
+    /** Vendor hook allowing selected asynchronous responses to finish during disposal. */
+    protected boolean shallIgnoreMessage(Message msg) {
+        return true;
     }
 
     /**

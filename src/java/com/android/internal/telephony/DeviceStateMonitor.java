@@ -85,6 +85,10 @@ public class DeviceStateMonitor extends Handler {
     static final int EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH = 8;
     static final int EVENT_RADIO_ON                     = 9;
     static final int EVENT_RADIO_OFF_OR_NOT_AVAILABLE   = 10;
+    static final int EVENT_SYNC_MTK_WFC_SUPPORT         = 11;
+
+    private static final long MTK_WFC_SYNC_DELAY_MS = 3000;
+    private static final long MTK_WFC_SYNC_RETRY_DELAY_MS = 12000;
 
     private static final int WIFI_UNAVAILABLE = 0;
     private static final int WIFI_AVAILABLE = 1;
@@ -120,6 +124,7 @@ public class DeviceStateMonitor extends Handler {
                 if (mWifiNetworks.size() == 0) {
                     // We just connected to Wifi, so send an update.
                     obtainMessage(EVENT_WIFI_CONNECTION_CHANGED, WIFI_AVAILABLE, 0).sendToTarget();
+                    scheduleMtkWfcSupportSync();
                     log("Wifi (default) connected", true);
                 }
                 mWifiNetworks.add(network);
@@ -477,6 +482,7 @@ public class DeviceStateMonitor extends Handler {
             case EVENT_RIL_CONNECTED:
             case EVENT_RADIO_AVAILABLE:
                 onReset();
+                scheduleMtkWfcSupportSync();
                 break;
             case EVENT_RADIO_ON:
                 onUpdateDeviceState(msg.what, /* state= */ true);
@@ -495,9 +501,18 @@ public class DeviceStateMonitor extends Handler {
             case EVENT_WIFI_CONNECTION_CHANGED:
                 onUpdateDeviceState(msg.what, msg.arg1 != WIFI_UNAVAILABLE);
                 break;
+            case EVENT_SYNC_MTK_WFC_SUPPORT:
+                PhoneFactory.syncMtkWfcFeatureSupport(mPhone);
+                break;
             default:
                 throw new IllegalStateException("Unexpected message arrives. msg = " + msg.what);
         }
+    }
+
+    private void scheduleMtkWfcSupportSync() {
+        removeMessages(EVENT_SYNC_MTK_WFC_SUPPORT);
+        sendEmptyMessageDelayed(EVENT_SYNC_MTK_WFC_SUPPORT, MTK_WFC_SYNC_DELAY_MS);
+        sendEmptyMessageDelayed(EVENT_SYNC_MTK_WFC_SUPPORT, MTK_WFC_SYNC_RETRY_DELAY_MS);
     }
 
     /**

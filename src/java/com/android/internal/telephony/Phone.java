@@ -89,6 +89,7 @@ import com.android.internal.telephony.analytics.TelephonyAnalytics;
 import com.android.internal.telephony.data.AccessNetworksManager;
 import com.android.internal.telephony.data.DataNetworkController;
 import com.android.internal.telephony.data.DataSettingsManager;
+import com.android.internal.telephony.dataconnection.DataEnabledSettings;
 import com.android.internal.telephony.data.LinkBandwidthEstimator;
 import com.android.internal.telephony.domainselection.DomainSelectionResolver;
 import com.android.internal.telephony.emergency.EmergencyConstants;
@@ -337,6 +338,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     protected int mVmCount = 0;
     private boolean mDnsCheckDisabled;
     protected DataNetworkController mDataNetworkController;
+    protected DataEnabledSettings mDataEnabledSettings;
     /* Used for dispatching signals to configured carrier apps */
     protected CarrierSignalAgent mCarrierSignalAgent;
     /* Used for dispatching carrier action from carrier apps */
@@ -1613,7 +1615,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mEmergencyCallToggledRegistrants.remove(h);
     }
 
-    private void updateSavedNetworkOperator(NetworkSelectMessage nsm) {
+    protected void updateSavedNetworkOperator(NetworkSelectMessage nsm) {
         int subId = getSubId();
         if (SubscriptionManager.isValidSubscriptionId(subId)) {
             // open the shared preferences editor, and write the value.
@@ -1680,7 +1682,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     /**
      * Clears the saved network selection.
      */
-    private void clearSavedNetworkSelection() {
+    protected void clearSavedNetworkSelection() {
         // open the shared preferences and search with our key.
         PreferenceManager.getDefaultSharedPreferences(getContext()).edit().
                 remove(NETWORK_SELECTION_KEY + getSubId()).
@@ -2188,7 +2190,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
 
-    private int getCallForwardingIndicatorFromSharedPref() {
+    protected int getCallForwardingIndicatorFromSharedPref() {
         int status = IccRecords.CALL_FORWARDING_STATUS_DISABLED;
         int subId = getSubId();
         if (SubscriptionManager.isValidSubscriptionId(subId)) {
@@ -2227,7 +2229,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         return status;
     }
 
-    private void setCallForwardingIndicatorInSharedPref(boolean enable) {
+    protected void setCallForwardingIndicatorInSharedPref(boolean enable) {
         int status = enable ? IccRecords.CALL_FORWARDING_STATUS_ENABLED :
                 IccRecords.CALL_FORWARDING_STATUS_DISABLED;
         int subId = getSubId();
@@ -4974,6 +4976,16 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      */
     public @Nullable DataNetworkController getDataNetworkController() {
         return mDataNetworkController;
+    }
+
+    /** Android 13 compatibility adapter for vendor telephony extensions. */
+    public @Nullable DataEnabledSettings getDataEnabledSettings() {
+        return mDataEnabledSettings;
+    }
+
+    /** Compatibility for Android 13 vendor telephony extensions. */
+    public boolean isUsingNewDataStack() {
+        return true;
     }
 
     /**

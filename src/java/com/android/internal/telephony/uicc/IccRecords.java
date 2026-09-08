@@ -69,7 +69,7 @@ public abstract class IccRecords extends Handler implements IccConstants {
             + CellIdentity.MNC_MAX_LENGTH;
 
     // Lookup table for carriers known to produce SIMs which incorrectly indicate MNC length.
-    private static final String[] MCCMNC_CODES_HAVING_3DIGITS_MNC = {
+    protected static final String[] MCCMNC_CODES_HAVING_3DIGITS_MNC = {
         "302370", "302720", "310260",
         "405025", "405026", "405027", "405028", "405029", "405030", "405031", "405032",
         "405033", "405034", "405035", "405036", "405037", "405038", "405039", "405040",

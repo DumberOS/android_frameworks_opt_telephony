@@ -67,6 +67,7 @@ import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.TelephonyStatsLog;
 import com.android.internal.telephony.cat.CatService;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.FeatureFlagsImpl;
 import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
@@ -108,20 +109,20 @@ public class UiccProfile extends IccCard {
     private final @NonNull FeatureFlags mFlags;
     // The lock object is created by UiccSlot that owns the UiccCard that owns this UiccProfile.
     // This is to share the lock between UiccSlot, UiccCard and UiccProfile for now.
-    private final Object mLock;
+    protected final Object mLock;
     private PinState mUniversalPinState;
     private int mGsmUmtsSubscriptionAppIndex;
     private int mCdmaSubscriptionAppIndex;
     private int mImsSubscriptionAppIndex;
     private UiccCardApplication[] mUiccApplications =
             new UiccCardApplication[IccCardStatus.CARD_MAX_APPS];
-    private Context mContext;
-    private CommandsInterface mCi;
+    protected Context mContext;
+    protected CommandsInterface mCi;
     private final UiccCard mUiccCard;
     private CatService mCatService;
     private UiccCarrierPrivilegeRules mCarrierPrivilegeRules;
     private UiccCarrierPrivilegeRules mTestOverrideCarrierPrivilegeRules;
-    private boolean mDisposed = false;
+    protected boolean mDisposed = false;
 
     private RegistrantList mOperatorBrandOverrideRegistrants = new RegistrantList();
 
@@ -149,16 +150,16 @@ public class UiccProfile extends IccCard {
     private static final int EVENT_SUPPLY_ICC_PIN_DONE = 16;
     // NOTE: any new EVENT_* values must be added to eventToString.
 
-    private TelephonyManager mTelephonyManager;
+    protected TelephonyManager mTelephonyManager;
 
     private RegistrantList mNetworkLockedRegistrants = new RegistrantList();
 
     @VisibleForTesting
     public int mCurrentAppType = UiccController.APP_FAM_3GPP; //default to 3gpp?
     private int mRadioTech = ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
-    private UiccCardApplication mUiccApplication = null;
-    private IccRecords mIccRecords = null;
-    private IccCardConstants.State mExternalState = IccCardConstants.State.UNKNOWN;
+    protected UiccCardApplication mUiccApplication = null;
+    protected IccRecords mIccRecords = null;
+    protected IccCardConstants.State mExternalState = IccCardConstants.State.UNKNOWN;
 
     // The number of UiccApplications modem reported. It's different from mUiccApplications.length
     // which is always CARD_MAX_APPS, and only updated when modem sends an update, and NOT updated
@@ -328,6 +329,12 @@ public class UiccProfile extends IccCard {
         }
     };
 
+    /** Android 13 vendor compatibility constructor. */
+    public UiccProfile(Context c, CommandsInterface ci, IccCardStatus ics, int phoneId,
+            UiccCard uiccCard, Object lock) {
+        this(c, ci, ics, phoneId, uiccCard, lock, new FeatureFlagsImpl());
+    }
+
     public UiccProfile(Context c, CommandsInterface ci, IccCardStatus ics, int phoneId,
             UiccCard uiccCard, Object lock, @NonNull FeatureFlags flags) {
         if (DBG) log("Creating profile");
@@ -425,7 +432,7 @@ public class UiccProfile extends IccCard {
         }
     }
 
-    private void setCurrentAppType(boolean isGsm) {
+    protected void setCurrentAppType(boolean isGsm) {
         if (VDBG) log("setCurrentAppType");
         int primaryAppType;
         int secondaryAppType;
@@ -768,7 +775,7 @@ public class UiccProfile extends IccCard {
         }
     }
 
-    private void registerCurrAppEvents() {
+    protected void registerCurrAppEvents() {
         // In case of locked, only listen to the current application.
         if (mIccRecords != null) {
             mIccRecords.registerForLockedRecordsLoaded(mHandler, EVENT_ICC_LOCKED, null);
@@ -776,7 +783,7 @@ public class UiccProfile extends IccCard {
         }
     }
 
-    private void unregisterCurrAppEvents() {
+    protected void unregisterCurrAppEvents() {
         if (mIccRecords != null) {
             mIccRecords.unregisterForLockedRecordsLoaded(mHandler);
             mIccRecords.unregisterForNetworkLockedRecordsLoaded(mHandler);
@@ -822,7 +829,7 @@ public class UiccProfile extends IccCard {
         }
     }
 
-    private void setExternalState(IccCardConstants.State newState) {
+    protected void setExternalState(IccCardConstants.State newState) {
         setExternalState(newState, false);
     }
 
@@ -843,7 +850,7 @@ public class UiccProfile extends IccCard {
      * Locked state have a reason (PIN, PUK, NETWORK, PERM_DISABLED, CARD_IO_ERROR)
      * @return reason
      */
-    private String getIccStateReason(IccCardConstants.State state) {
+    protected String getIccStateReason(IccCardConstants.State state) {
         switch (state) {
             case PIN_REQUIRED: return IccCardConstants.INTENT_VALUE_LOCKED_ON_PIN;
             case PUK_REQUIRED: return IccCardConstants.INTENT_VALUE_LOCKED_ON_PUK;
@@ -1130,7 +1137,7 @@ public class UiccProfile extends IccCard {
                 if (mUiccApplications[i] == null) {
                     //Create newly added Applications
                     if (i < ics.mApplications.length) {
-                        mUiccApplications[i] = new UiccCardApplication(this,
+                        mUiccApplications[i] = makeUiccApplication(this,
                                 ics.mApplications[i], mContext, mCi);
                     }
                 } else if (i >= ics.mApplications.length) {
@@ -1163,6 +1170,12 @@ public class UiccProfile extends IccCard {
             }
             updateIccAvailability(true);
         }
+    }
+
+    /** Android 13 vendor extension point for UICC application construction. */
+    protected UiccCardApplication makeUiccApplication(UiccProfile profile,
+            IccCardApplicationStatus appStatus, Context context, CommandsInterface ci) {
+        return new UiccCardApplication(profile, appStatus, context, ci);
     }
 
     private void createAndUpdateCatServiceLocked() {
@@ -1795,11 +1808,11 @@ public class UiccProfile extends IccCard {
         }
     }
 
-    private static void log(String msg) {
+    protected static void log(String msg) {
         Rlog.d(LOG_TAG, msg);
     }
 
-    private static void loge(String msg) {
+    protected static void loge(String msg) {
         Rlog.e(LOG_TAG, msg);
     }
 
