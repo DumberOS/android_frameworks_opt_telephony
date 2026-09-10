@@ -56,9 +56,10 @@ public class GsmCdmaConnection extends Connection {
 
     //***** Instance Variables
 
+    // Match stock visibility for vendor connection subclasses.
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    GsmCdmaCallTracker mOwner;
-    GsmCdmaCall mParent;
+    public GsmCdmaCallTracker mOwner;
+    protected GsmCdmaCall mParent;
 
     boolean mDisconnected;
 
@@ -325,7 +326,7 @@ public class GsmCdmaConnection extends Connection {
         return PhoneNumberUtils.cdmaCheckAndProcessPlusCode(ret.toString());
     }
 
-    /*package*/ boolean
+    public boolean
     compareTo(DriverCall c) {
         // On mobile originated (MO) calls, the phone number may have changed
         // due to a SIM Toolkit call control modification.
@@ -465,7 +466,7 @@ public class GsmCdmaConnection extends Connection {
      * Note that at this point, the hangup request has been dispatched to the radio
      * but no response has yet been received so update() has not yet been called
      */
-    void
+    public void
     onHangupLocal() {
         mCause = DisconnectCause.LOCAL;
         mPreciseCause = 0;
@@ -942,7 +943,7 @@ public class GsmCdmaConnection extends Connection {
         releaseWakeLock();
     }
 
-    private void
+    protected void
     processNextPostDialChar() {
         char c = 0;
         Registrant postDialHandler;
@@ -1199,12 +1200,12 @@ public class GsmCdmaConnection extends Connection {
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private boolean isPhoneTypeGsm() {
+    protected boolean isPhoneTypeGsm() {
         return mOwner.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_GSM;
     }
 
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void log(String msg) {
+    protected void log(String msg) {
         Rlog.d(LOG_TAG, "[GsmCdmaConn] " + msg);
     }
 
