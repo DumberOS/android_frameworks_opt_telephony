@@ -304,6 +304,7 @@ import android.net.InetAddresses;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.service.carrier.CarrierIdentifier;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.Annotation;
@@ -886,6 +887,26 @@ public class RILUtils {
         return new SmsMessage(addr, env);
     }
 
+    private static int convertToHalDataProfileBearerBitmap(DataProfile dp) {
+        return convertToHalDataProfileBearerBitmap(dp,
+                SystemProperties.getBoolean("sys.phh.stock_mtk_ims", false));
+    }
+
+    @VisibleForTesting
+    static int convertToHalDataProfileBearerBitmap(DataProfile dp, boolean stockMtkIms) {
+        int networkTypes = dp.getBearerBitmask();
+        if (stockMtkIms && networkTypes == 0
+                && (dp.getSupportedApnTypesBitmask()
+                        & (ApnSetting.TYPE_IMS | ApnSetting.TYPE_EMERGENCY)) != 0) {
+            // MTK's modem APN table needs an explicit IWLAN bit to start Wi-Fi offload.
+            // Keep zero (unrestricted) in the framework and preserve explicit carrier masks.
+            networkTypes = (int) (TelephonyManager.getAllNetworkTypesBitmask()
+                    | TelephonyManager.NETWORK_TYPE_BITMASK_IWLAN);
+        }
+        // RadioAccessFamily bits are offset by one from ServiceState's bearer bits.
+        return ServiceState.convertNetworkTypeBitmaskToBearerBitmask(networkTypes) << 1;
+    }
+
     /**
      * Convert to DataProfileInfo defined in radio/1.0/types.hal
      * @param dp Data profile
@@ -909,11 +930,7 @@ public class RILUtils {
         dpi.waitTime = dp.getWaitTime();
         dpi.enabled = dp.isEnabled();
         dpi.supportedApnTypesBitmap = dp.getSupportedApnTypesBitmask();
-        // Shift by 1 bit due to the discrepancy between
-        // android.hardware.radio.V1_0.RadioAccessFamily and the bitmask version of
-        // ServiceState.RIL_RADIO_TECHNOLOGY_XXXX.
-        dpi.bearerBitmap = ServiceState.convertNetworkTypeBitmaskToBearerBitmask(
-                dp.getBearerBitmask()) << 1;
+        dpi.bearerBitmap = convertToHalDataProfileBearerBitmap(dp);
         dpi.mtu = dp.getMtuV4();
         dpi.mvnoType = android.hardware.radio.V1_0.MvnoType.NONE;
         dpi.mvnoMatchData = "";
@@ -943,11 +960,7 @@ public class RILUtils {
         dpi.waitTime = dp.getWaitTime();
         dpi.enabled = dp.isEnabled();
         dpi.supportedApnTypesBitmap = dp.getSupportedApnTypesBitmask();
-        // Shift by 1 bit due to the discrepancy between
-        // android.hardware.radio.V1_0.RadioAccessFamily and the bitmask version of
-        // ServiceState.RIL_RADIO_TECHNOLOGY_XXXX.
-        dpi.bearerBitmap = ServiceState.convertNetworkTypeBitmaskToBearerBitmask(
-                dp.getBearerBitmask()) << 1;
+        dpi.bearerBitmap = convertToHalDataProfileBearerBitmap(dp);
         dpi.mtu = dp.getMtuV4();
         dpi.persistent = dp.isPersistent();
         dpi.preferred = dp.isPreferred();
@@ -981,11 +994,7 @@ public class RILUtils {
         dpi.waitTime = dp.getWaitTime();
         dpi.enabled = dp.isEnabled();
         dpi.supportedApnTypesBitmap = dp.getSupportedApnTypesBitmask();
-        // Shift by 1 bit due to the discrepancy between
-        // android.hardware.radio.V1_0.RadioAccessFamily and the bitmask version of
-        // ServiceState.RIL_RADIO_TECHNOLOGY_XXXX.
-        dpi.bearerBitmap = ServiceState.convertNetworkTypeBitmaskToBearerBitmask(
-                dp.getBearerBitmask()) << 1;
+        dpi.bearerBitmap = convertToHalDataProfileBearerBitmap(dp);
         dpi.mtuV4 = dp.getMtuV4();
         dpi.mtuV6 = dp.getMtuV6();
         dpi.persistent = dp.isPersistent();
@@ -1021,10 +1030,7 @@ public class RILUtils {
         dpi.waitTime = dp.getWaitTime();
         dpi.enabled = dp.isEnabled();
         dpi.supportedApnTypesBitmap = dp.getSupportedApnTypesBitmask();
-        // Shift by 1 bit due to the discrepancy between RadioAccessFamily.aidl and the bitmask
-        // version of ServiceState.RIL_RADIO_TECHNOLOGY_XXXX.
-        dpi.bearerBitmap = ServiceState.convertNetworkTypeBitmaskToBearerBitmask(
-                dp.getBearerBitmask()) << 1;
+        dpi.bearerBitmap = convertToHalDataProfileBearerBitmap(dp);
         dpi.mtuV4 = dp.getMtuV4();
         dpi.mtuV6 = dp.getMtuV6();
         dpi.persistent = dp.isPersistent();

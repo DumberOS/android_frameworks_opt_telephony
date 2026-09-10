@@ -675,6 +675,10 @@ public class DataProfileManager extends Handler {
                         + " profile " + apnSetting.getProfileId() + " -> " + profileId);
                 apnSetting.setProfileId(profileId);
             }
+            if (profileId != 0 && !apnSetting.isPersistent()) {
+                // Otherwise the HAL drops this ID and MTK omits fallback IMS from its APN table.
+                apnSetting.setPersistent(true);
+            }
         }
     }
 
