@@ -175,7 +175,8 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         mLoaded.set(false);
     }
 
-    private class EfIsimImpiLoaded implements IccRecords.IccRecordLoaded {
+    // Stock MTK subclasses instantiate these identity loaders across package boundaries.
+    public class EfIsimImpiLoaded implements IccRecords.IccRecordLoaded {
         public String getEfName() {
             return "EF_ISIM_IMPI";
         }
@@ -186,7 +187,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         }
     }
 
-    private class EfIsimImpuLoaded implements IccRecords.IccRecordLoaded {
+    public class EfIsimImpuLoaded implements IccRecords.IccRecordLoaded {
         public String getEfName() {
             return "EF_ISIM_IMPU";
         }
@@ -203,7 +204,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         }
     }
 
-    private class EfIsimDomainLoaded implements IccRecords.IccRecordLoaded {
+    public class EfIsimDomainLoaded implements IccRecords.IccRecordLoaded {
         public String getEfName() {
             return "EF_ISIM_DOMAIN";
         }

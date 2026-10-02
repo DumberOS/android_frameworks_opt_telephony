@@ -54,6 +54,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.lang.reflect.Modifier;
+
 public class IsimUiccRecordsTest extends TelephonyTest {
 
     // Mocked classes
@@ -99,6 +101,17 @@ public class IsimUiccRecordsTest extends TelephonyTest {
         mTestHandler = null;
         mIsimUiccRecordsUT = null;
         super.tearDown();
+    }
+
+    @Test
+    public void testIdentityLoadersAccessibleToStockMtkSubclass() throws Exception {
+        for (String name : new String[] {
+                "EfIsimImpiLoaded", "EfIsimImpuLoaded", "EfIsimDomainLoaded"}) {
+            Class<?> loader = Class.forName(IsimUiccRecords.class.getName() + "$" + name);
+            assertTrue(name + " must be public", Modifier.isPublic(loader.getModifiers()));
+            assertTrue(name + " constructor must be public", Modifier.isPublic(
+                    loader.getDeclaredConstructor(IsimUiccRecords.class).getModifiers()));
+        }
     }
 
     @Test
