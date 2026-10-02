@@ -58,7 +58,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String[] mIsimImpu;             // IMS public user identity(s)
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private String mIsimIst;                // IMS Service Table
+    protected String mIsimIst;              // IMS Service Table; also loaded by MTK subclasses
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private String[] mIsimPcscf;            // IMS Proxy Call Session Control Function
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
@@ -247,7 +247,8 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         }
     }
 
-    private class EfIsimPcscfLoaded implements IccRecords.IccRecordLoaded {
+    // Stock MTK's service-table callback instantiates this loader across packages.
+    public class EfIsimPcscfLoaded implements IccRecords.IccRecordLoaded {
         public String getEfName() {
             return "EF_ISIM_PCSCF";
         }

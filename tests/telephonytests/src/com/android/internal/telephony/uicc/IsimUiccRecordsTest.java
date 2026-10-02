@@ -104,14 +104,23 @@ public class IsimUiccRecordsTest extends TelephonyTest {
     }
 
     @Test
-    public void testIdentityLoadersAccessibleToStockMtkSubclass() throws Exception {
+    public void testLoadersAccessibleToStockMtkSubclass() throws Exception {
         for (String name : new String[] {
-                "EfIsimImpiLoaded", "EfIsimImpuLoaded", "EfIsimDomainLoaded"}) {
+                "EfIsimImpiLoaded", "EfIsimImpuLoaded", "EfIsimDomainLoaded",
+                "EfIsimPcscfLoaded"}) {
             Class<?> loader = Class.forName(IsimUiccRecords.class.getName() + "$" + name);
             assertTrue(name + " must be public", Modifier.isPublic(loader.getModifiers()));
             assertTrue(name + " constructor must be public", Modifier.isPublic(
                     loader.getDeclaredConstructor(IsimUiccRecords.class).getModifiers()));
         }
+    }
+
+    @Test
+    public void testServiceTableAccessibleToStockMtkSubclass() throws Exception {
+        assertTrue("mIsimIst must be protected", Modifier.isProtected(
+                IsimUiccRecords.class.getDeclaredField("mIsimIst").getModifiers()));
+        assertEquals(String.class,
+                IsimUiccRecords.class.getDeclaredField("mIsimIst").getType());
     }
 
     @Test
