@@ -1637,6 +1637,27 @@ public class ImsPhone extends ImsPhoneBase {
 
     @Override
     public void notifySrvccState(int state) {
+        if ("true".equals(getSystemProperty("sys.phh.stock_mtk_ims", "false"))) {
+            // Android 13 MTK trackers override the enum overload. In particular, their
+            // completion handler clears the SRVCC state that would otherwise block dialing.
+            // Its super call uses the existing enum-to-int bridge in the base tracker.
+            switch (state) {
+                case TelephonyManager.SRVCC_STATE_HANDOVER_STARTED:
+                    mCT.notifySrvccState(Call.SrvccState.STARTED);
+                    return;
+                case TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED:
+                    mCT.notifySrvccState(Call.SrvccState.COMPLETED);
+                    return;
+                case TelephonyManager.SRVCC_STATE_HANDOVER_FAILED:
+                    mCT.notifySrvccState(Call.SrvccState.FAILED);
+                    return;
+                case TelephonyManager.SRVCC_STATE_HANDOVER_CANCELED:
+                    mCT.notifySrvccState(Call.SrvccState.CANCELED);
+                    return;
+                default:
+                    break;
+            }
+        }
         mCT.notifySrvccState(state);
     }
 

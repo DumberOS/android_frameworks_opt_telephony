@@ -691,7 +691,8 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
     private static final int DELAY_STACKING_PROVISIONING_CHANGES_MILLIS = 50; //ms
 
     // Following values are for mHoldSwitchingState
-    private enum HoldSwapState {
+    // Referenced by the Android 13 MTK tracker's SRVCC completion handler.
+    protected enum HoldSwapState {
         // Not in the middle of a hold/swap operation
         INACTIVE,
         // Pending a single call getting held

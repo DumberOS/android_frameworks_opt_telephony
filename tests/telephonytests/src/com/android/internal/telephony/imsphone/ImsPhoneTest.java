@@ -58,8 +58,10 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -198,6 +200,106 @@ public class ImsPhoneTest extends TelephonyTest {
         mImsPhoneUT = null;
         mBundle = null;
         super.tearDown();
+    }
+
+    @Test
+    @SmallTest
+    public void testNotifySrvccStateStockMtkUsesLegacyOverride() {
+        ImsPhone phone = spy(mImsPhoneUT);
+        doReturn("true").when(phone).getSystemProperty("sys.phh.stock_mtk_ims", "false");
+        int[] states = {
+                TelephonyManager.SRVCC_STATE_HANDOVER_STARTED,
+                TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED,
+                TelephonyManager.SRVCC_STATE_HANDOVER_FAILED,
+                TelephonyManager.SRVCC_STATE_HANDOVER_CANCELED
+        };
+        Call.SrvccState[] legacyStates = {
+                Call.SrvccState.STARTED, Call.SrvccState.COMPLETED,
+                Call.SrvccState.FAILED, Call.SrvccState.CANCELED
+        };
+        for (int i = 0; i < states.length; i++) {
+            clearInvocations(mImsCT);
+            phone.notifySrvccState(states[i]);
+            verify(mImsCT).notifySrvccState(legacyStates[i]);
+            verifyNoMoreInteractions(mImsCT);
+        }
+    }
+
+    @Test
+    @SmallTest
+    public void testNotifySrvccStateStockMtkCompletesLegacyLifecycle() {
+        ImsPhone phone = spy(mImsPhoneUT);
+        doReturn("true").when(phone).getSystemProperty("sys.phh.stock_mtk_ims", "false");
+
+        // Model the vendor's enum override around the real base enum-to-int bridge.
+        // The integer handler stands in for modem/IMS notifications, not vendor cleanup.
+        doAnswer(invocation -> {
+            switch ((int) invocation.getArguments()[0]) {
+                case TelephonyManager.SRVCC_STATE_HANDOVER_STARTED:
+                    mImsCT.mSrvccState = Call.SrvccState.STARTED;
+                    break;
+                case TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED:
+                    mImsCT.mSrvccState = Call.SrvccState.COMPLETED;
+                    break;
+                default:
+                    throw new AssertionError("Unexpected SRVCC event");
+            }
+            return null;
+        }).when(mImsCT).notifySrvccState(anyInt());
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            if (mImsCT.mSrvccState == Call.SrvccState.COMPLETED) {
+                mImsCT.mSrvccState = Call.SrvccState.NONE;
+            }
+            return null;
+        }).when(mImsCT).notifySrvccState(any(Call.SrvccState.class));
+        clearInvocations(mImsCT);
+
+        phone.notifySrvccState(TelephonyManager.SRVCC_STATE_HANDOVER_STARTED);
+        assertEquals(Call.SrvccState.STARTED, mImsCT.mSrvccState);
+        phone.notifySrvccState(TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED);
+        assertEquals(Call.SrvccState.NONE, mImsCT.mSrvccState);
+        verify(mImsCT).notifySrvccState(Call.SrvccState.STARTED);
+        verify(mImsCT).notifySrvccState(Call.SrvccState.COMPLETED);
+        verify(mImsCT).notifySrvccState(TelephonyManager.SRVCC_STATE_HANDOVER_STARTED);
+        verify(mImsCT).notifySrvccState(TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED);
+        verifyNoMoreInteractions(mImsCT);
+    }
+
+    @Test
+    @SmallTest
+    public void testNotifySrvccStateOtherStacksKeepIntegerDispatch() {
+        ImsPhone phone = spy(mImsPhoneUT);
+        int[] states = {
+                TelephonyManager.SRVCC_STATE_HANDOVER_STARTED,
+                TelephonyManager.SRVCC_STATE_HANDOVER_COMPLETED,
+                TelephonyManager.SRVCC_STATE_HANDOVER_FAILED,
+                TelephonyManager.SRVCC_STATE_HANDOVER_CANCELED,
+                -1, Integer.MAX_VALUE
+        };
+        for (String property : new String[] {"false", "", null}) {
+            doReturn(property).when(phone)
+                    .getSystemProperty("sys.phh.stock_mtk_ims", "false");
+            for (int state : states) {
+                clearInvocations(mImsCT);
+                phone.notifySrvccState(state);
+                verify(mImsCT).notifySrvccState(state);
+                verifyNoMoreInteractions(mImsCT);
+            }
+        }
+    }
+
+    @Test
+    @SmallTest
+    public void testNotifySrvccStateStockMtkUnknownStateKeepsIntegerDispatch() {
+        ImsPhone phone = spy(mImsPhoneUT);
+        doReturn("true").when(phone).getSystemProperty("sys.phh.stock_mtk_ims", "false");
+        for (int state : new int[] {-1, Integer.MAX_VALUE}) {
+            clearInvocations(mImsCT);
+            phone.notifySrvccState(state);
+            verify(mImsCT).notifySrvccState(state);
+            verifyNoMoreInteractions(mImsCT);
+        }
     }
 
     @Test
