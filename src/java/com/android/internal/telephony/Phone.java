@@ -314,6 +314,9 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      * corresponding operator name.
      */
     protected static class NetworkSelectMessage {
+        // Vendor Phone subclasses in other packages instantiate this container directly.
+        public NetworkSelectMessage() {}
+
         public Message message;
         public String operatorNumeric;
         public String operatorAlphaLong;
